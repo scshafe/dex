@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "id": "custom-manifest",
+  "_schema": "User-extension stub. Drop additional nodes here, or add files to ~/.config/wm/rolodex/*.json (auto-merged at P-11.6). Empty until you add something.",
+  "children": []
+}

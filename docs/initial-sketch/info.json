@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "id": "info-manifest",
+  "_schema": "Live-information panels. Most entries here will become dynamic via `children_from: provider:...` in P-11.4; for P-11.1 they stub the structure with `action: wm: [...]` leaves that simply run the equivalent wm sub-command (output appears in the terminal that fired wm-pal, until the in-modal info panel renderer lands at P-11.5). When P-11.5 lands these convert to `action: { info: \"provider:...\" }` for inline rendering.",
+  "children": [
+    {
+      "id": "info.displays",
+      "key": "d",
+      "icon": "",
+      "label": "Displays",
+      "subtitle": "Per-display geometry + notch info",
+      "action": { "shell": "jq . ~/.config/wm/runtime/displays.json | open -f -a WezTerm" }
+    },
+    {
+      "id": "info.broker",
+      "key": "b",
+      "icon": "",
+      "label": "Broker status",
+      "subtitle": "Per-provider refcount + freshness",
+      "action": { "wm": ["broker", "status"] }
+    },
+    {
+      "id": "info.doctor",
+      "key": "r",
+      "icon": "",
+      "label": "Doctor report",
+      "subtitle": "Run diagnostics",
+      "action": { "wm": ["doctor"] }
+    },
+    {
+      "id": "info.state",
+      "key": "s",
+      "icon": "",
+      "label": "WM state snapshot",
+      "subtitle": "Current bag/space/window state",
+      "action": { "wm": ["state"] }
+    },
+    {
+      "id": "info.bar-mode",
+      "key": "m",
+      "icon": "",
+      "label": "Bar mode",
+      "subtitle": "sketchybar | mac",
+      "action": { "wm": ["bar", "mode", "status"] }
+    },
+    {
+      "id": "info.bar-active",
+      "key": "a",
+      "icon": "",
+      "label": "Active bar config",
+      "subtitle": "Which bar_configs/<id>.json is in use",
+      "action": { "wm": ["bar", "active"] }
+    },
+    {
+      "id": "info.menubar-autohide",
+      "key": "h",
+      "icon": "",
+      "label": "Menubar auto-hide",
+      "subtitle": "Current _HIHideMenuBar state",
+      "action": { "shell": "~/.config/wm/bin/wm-menubar status" }
+    }
+  ]
+}

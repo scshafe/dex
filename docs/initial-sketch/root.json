@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "id": "rolodex-root",
+  "label": "Rolodex",
+  "render": "grid",
+  "children": [
+    {
+      "id": "terminal",
+      "key": "t",
+      "icon": "",
+      "label": "Terminal",
+      "subtitle": "Open WezTerm",
+      "action": { "open": { "app": "WezTerm" } }
+    },
+    {
+      "id": "wm-config",
+      "key": "c",
+      "icon": "",
+      "label": "WM Config",
+      "subtitle": "Edit configuration files",
+      "import": "manifest:wm-config"
+    },
+    {
+      "id": "wm-commands",
+      "key": "m",
+      "icon": "",
+      "label": "WM Commands",
+      "subtitle": "Run wm sub-commands",
+      "import": "manifest:wm-commands"
+    },
+    {
+      "id": "info",
+      "key": "i",
+      "icon": "",
+      "label": "Find Information",
+      "subtitle": "Live system data",
+      "import": "manifest:info"
+    },
+    {
+      "id": "custom",
+      "key": "u",
+      "icon": "",
+      "label": "Custom",
+      "subtitle": "User-defined entries",
+      "import": "manifest:custom"
+    }
+  ]
+}

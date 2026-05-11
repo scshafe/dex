@@ -1,0 +1,199 @@
+{
+  "version": 1,
+  "id": "wm-commands-manifest",
+  "children": [
+    {
+      "id": "wm.reload",
+      "key": "r",
+      "icon": "",
+      "label": "Reload",
+      "subtitle": "Re-source dispatchers + reload sketchybar/yabai/skhd",
+      "shortcut": "Hyper+R",
+      "action": { "wm": ["reload"] }
+    },
+    {
+      "id": "wm.restart",
+      "key": "x",
+      "icon": "",
+      "label": "Restart services",
+      "subtitle": "Hard-restart yabai + skhd + sketchybar via launchctl",
+      "action": { "wm": ["restart"] }
+    },
+    {
+      "id": "wm.doctor",
+      "key": "d",
+      "icon": "",
+      "label": "Doctor",
+      "subtitle": "Run diagnostics and surface failing checks",
+      "action": { "wm": ["doctor"] }
+    },
+    {
+      "id": "wm.test",
+      "key": "t",
+      "icon": "",
+      "label": "Test",
+      "subtitle": "Run wm test suite",
+      "action": { "wm": ["test"] }
+    },
+    {
+      "id": "wm.state",
+      "key": "s",
+      "icon": "",
+      "label": "State snapshot",
+      "subtitle": "Print current bag/space/window state",
+      "action": { "wm": ["state"] }
+    },
+    {
+      "id": "wm.keymap.open",
+      "key": "k",
+      "icon": "",
+      "label": "Keymap",
+      "subtitle": "List bindings/commands available in the current context",
+      "shortcut": "Hyper+I",
+      "action": { "spawn": "wm keymap open" }
+    },
+    {
+      "id": "wm.help",
+      "key": "h",
+      "icon": "",
+      "label": "Help",
+      "subtitle": "Show available commands and bindings",
+      "action": { "wm": ["help"] }
+    },
+    {
+      "id": "wm.activity",
+      "key": "a",
+      "icon": "",
+      "label": "Activity Monitor",
+      "subtitle": "Open Activity Monitor.app",
+      "action": { "open": { "app": "Activity Monitor" } }
+    },
+    {
+      "id": "wm.console",
+      "key": "n",
+      "icon": "",
+      "label": "Console",
+      "subtitle": "Open Console.app for system log viewing",
+      "action": { "open": { "app": "Console" } }
+    },
+    {
+      "id": "wm.broker",
+      "key": "b",
+      "icon": "",
+      "label": "Broker",
+      "subtitle": "Status / reload / logs",
+      "children": [
+        {
+          "id": "wm.broker.status",
+          "key": "s",
+          "label": "Status",
+          "subtitle": "Per-provider refcount + freshness + socket info",
+          "action": { "wm": ["broker", "status"] }
+        },
+        {
+          "id": "wm.broker.reload",
+          "key": "r",
+          "label": "Reload",
+          "subtitle": "SIGHUP wm-broker — pick up manifest/config changes",
+          "action": { "wm": ["broker", "reload"] }
+        },
+        {
+          "id": "wm.broker.logs",
+          "key": "l",
+          "label": "Logs",
+          "subtitle": "Tail wm-broker stderr in a new wezterm",
+          "action": { "wm": ["broker", "logs"] }
+        }
+      ]
+    },
+    {
+      "id": "wm.logs",
+      "key": "l",
+      "icon": "",
+      "label": "Logs",
+      "subtitle": "Follow wm log streams",
+      "children": [
+        {
+          "id": "wm.logs.tail",
+          "key": "t",
+          "label": "Tail",
+          "subtitle": "Follow the unified wm log stream",
+          "action": { "wm": ["logs", "tail"] }
+        }
+      ]
+    },
+    {
+      "id": "wm.bag",
+      "key": "g",
+      "icon": "",
+      "label": "Bag",
+      "subtitle": "Carried windows",
+      "children": [
+        {
+          "id": "wm.bag.list",
+          "key": "l",
+          "label": "List",
+          "subtitle": "Show active bag stack",
+          "action": { "wm": ["bag", "list"] }
+        }
+      ]
+    },
+    {
+      "id": "wm.scratchpad",
+      "key": "p",
+      "icon": "",
+      "label": "Scratchpad",
+      "subtitle": "Show/hide the scratchpad surface",
+      "children": [
+        {
+          "id": "wm.scratchpad.toggle",
+          "key": "t",
+          "label": "Toggle",
+          "subtitle": "Show or hide the scratchpad",
+          "shortcut": "Hyper+\\",
+          "action": { "wm": ["scratchpad", "toggle"] }
+        }
+      ]
+    },
+    {
+      "id": "wm.layout",
+      "key": "y",
+      "icon": "",
+      "label": "Layout",
+      "subtitle": "Per-space layout operations",
+      "children": [
+        {
+          "id": "wm.layout.cycle",
+          "key": "c",
+          "label": "Cycle",
+          "subtitle": "Rotate through layouts on the active space",
+          "action": { "wm": ["layout", "cycle"] }
+        }
+      ]
+    },
+    {
+      "id": "wm.float",
+      "key": "f",
+      "icon": "",
+      "label": "Float",
+      "subtitle": "Tiled vs floating window state",
+      "children": [
+        {
+          "id": "wm.float.toggle",
+          "key": "t",
+          "label": "Toggle",
+          "subtitle": "Toggle the focused window between tiled and floating",
+          "shortcut": "Alt+T",
+          "action": { "wm": ["float", "toggle"] }
+        },
+        {
+          "id": "wm.float.status",
+          "key": "s",
+          "label": "Status",
+          "subtitle": "Print the focused window's id, state, app, title",
+          "action": { "wm": ["float", "status"] }
+        }
+      ]
+    }
+  ]
+}

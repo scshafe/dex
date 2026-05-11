@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "id": "wm-config-manifest",
+  "children": [
+    {
+      "id": "cfg.skhd",
+      "key": "k",
+      "icon": "",
+      "label": "skhdrc",
+      "subtitle": "Edit ~/.config/skhd/skhdrc",
+      "action": { "shell": "open -a WezTerm ~/.config/skhd" }
+    },
+    {
+      "id": "cfg.yabai",
+      "key": "y",
+      "icon": "",
+      "label": "yabairc",
+      "subtitle": "Edit ~/.config/yabai/yabairc",
+      "action": { "shell": "open -a WezTerm ~/.config/yabai" }
+    },
+    {
+      "id": "cfg.sketchybar",
+      "key": "s",
+      "icon": "",
+      "label": "sketchybarrc",
+      "subtitle": "Edit ~/.config/sketchybar/",
+      "action": { "shell": "open -a WezTerm ~/.config/sketchybar" }
+    },
+    {
+      "id": "cfg.wm",
+      "key": "w",
+      "icon": "",
+      "label": "wm root",
+      "subtitle": "Edit ~/.config/wm/",
+      "action": { "shell": "open -a WezTerm ~/.config/wm" }
+    },
+    {
+      "id": "cfg.bar-config",
+      "key": "b",
+      "icon": "",
+      "label": "Bar configs",
+      "subtitle": "Edit ~/.config/wm/bar_configs/",
+      "action": { "shell": "open -a WezTerm ~/.config/wm/bar_configs" }
+    },
+    {
+      "id": "cfg.rolodex",
+      "key": "r",
+      "icon": "",
+      "label": "Rolodex manifests",
+      "subtitle": "Edit ~/.config/wm/lib/rolodex/",
+      "action": { "shell": "open -a WezTerm ~/.config/wm/lib/rolodex" }
+    },
+    {
+      "id": "cfg.zsh",
+      "key": "z",
+      "icon": "",
+      "label": "zshrc",
+      "subtitle": "Edit ~/.zshrc",
+      "action": { "shell": "open -a WezTerm ~/.zshrc" }
+    }
+  ]
+}
