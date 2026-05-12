@@ -173,13 +173,14 @@ func activateCommand(entry model.Entry, concernArgs []string, opts ActivateOpts)
 			resolved[c.LocalID] = c.Default
 			continue
 		}
-		if c.Required {
-			fmt.Fprintf(opts.Stderr,
-				"dex activate: concern %q is required but not provided (and has no default)\n",
-				c.LocalID)
-			return 1
-		}
-		resolved[c.LocalID] = ""
+		// Optional + no default + not provided → error. Aligns with
+		// the session reducer's UNRESOLVED_REQUIRED semantics
+		// (silent empty-string substitution was a v0 ergonomics
+		// crutch that masked typos).
+		fmt.Fprintf(opts.Stderr,
+			"dex activate: concern %q has no value (no --concern=value and no default)\n",
+			c.LocalID)
+		return 1
 	}
 
 	// Substitute {local_id} placeholders.

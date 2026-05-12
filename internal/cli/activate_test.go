@@ -199,8 +199,8 @@ func TestActivateCommandMissingRequiredConcern(t *testing.T) {
 	if exit == 0 {
 		t.Fatal("missing required concern should error")
 	}
-	if !strings.Contains(errBuf.String(), "required") {
-		t.Fatalf("expected 'required' in stderr; got %q", errBuf.String())
+	if !strings.Contains(errBuf.String(), "msg") {
+		t.Fatalf("expected error mentioning concern 'msg'; got %q", errBuf.String())
 	}
 }
 
@@ -269,6 +269,54 @@ func TestActivateCommandExecPropagatesExitCode(t *testing.T) {
 		[]string{"/shell-false"})
 	if exit == 0 {
 		t.Fatal("expected nonzero exit from `false`")
+	}
+}
+
+func TestActivateCommandOptionalNoDefaultErrors(t *testing.T) {
+	tmp := t.TempDir()
+	for _, d := range []string{"bundled", "personal", "private", "ephemeral"} {
+		if err := os.MkdirAll(filepath.Join(tmp, d), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	r := `{
+		"schema_version": 1,
+		"id": "01HB00000000000000000000R1",
+		"slug": "root",
+		"label": "Root",
+		"visibility": "bundled",
+		"entries": [{
+			"id": "01HB00000000000000000000C9",
+			"slug": "x",
+			"label": "X",
+			"kind": "command",
+			"command": {
+				"template": "echo {tag}",
+				"concerns": [{
+					"id": "01HB00000000000000000000K9",
+					"local_id": "tag",
+					"slug": "tag",
+					"label": "Tag",
+					"required": false,
+					"strict": false
+				}]
+			}
+		}]
+	}`
+	if err := os.WriteFile(filepath.Join(tmp, "bundled", "root.json"), []byte(r), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var out, errBuf bytes.Buffer
+	exit := cli.RunActivate(cli.ActivateOpts{
+		StoreRoot: tmp, DryRun: true, Stdout: &out, Stderr: &errBuf,
+	}, []string{"/x"})
+	if exit == 0 {
+		t.Fatalf("expected non-zero exit when optional concern has no default and no value provided; stdout=%q stderr=%q",
+			out.String(), errBuf.String())
+	}
+	if !strings.Contains(errBuf.String(), "tag") {
+		t.Fatalf("expected error mentioning concern 'tag'; got %q", errBuf.String())
 	}
 }
 
