@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/scshafe/dex/internal/model"
+	"github.com/scshafe/dex/internal/path"
 	"github.com/scshafe/dex/internal/session"
 )
 
@@ -188,4 +189,94 @@ func mapsEqual(a, b map[string]string) bool {
 		}
 	}
 	return true
+}
+
+func TestDrillByPathToPointer(t *testing.T) {
+	tools := model.Rolodex{
+		SchemaVersion: 1, ID: "01HB00000000000000000000T1", Slug: "tools", Label: "Tools",
+		Visibility: model.VisibilityBundled,
+	}
+	root := model.Rolodex{
+		Slug: "merged-root",
+		Entries: []model.Entry{{
+			NodeCore: model.NodeCore{ID: "01HB00000000000000000000E1", Slug: "tools", Label: "Tools"},
+			Kind:     model.KindPointer,
+			Pointer:  &model.PointerPayload{To: tools.ID},
+		}},
+	}
+	r := &fakeResolver{
+		rolodexes: map[string]model.Rolodex{tools.ID: tools},
+		root:      root,
+	}
+	st := newState(t)
+	st2, env, err := session.Apply(r, st, session.Action{
+		Type: session.ActionDrill, Target: "/tools",
+	})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if !env.OK {
+		t.Fatalf("envelope: %+v", env)
+	}
+	// Drilling into a pointer entry advances the cursor to its target
+	// rolodex (browse mode), and stamps the display path.
+	if st2.Cursor.RolodexID != tools.ID {
+		t.Fatalf("cursor.rolodex_id: got %q want %q", st2.Cursor.RolodexID, tools.ID)
+	}
+	if st2.Cursor.Mode != session.CursorModeBrowse {
+		t.Fatalf("cursor.mode: got %q want browse", st2.Cursor.Mode)
+	}
+	if st2.Cursor.Path != "/tools" {
+		t.Fatalf("cursor.path: got %q want /tools", st2.Cursor.Path)
+	}
+}
+
+func TestDrillByPathToInfoEntry(t *testing.T) {
+	root := model.Rolodex{
+		ID:   "01HB00000000000000000000R1",
+		Slug: "merged-root",
+		Entries: []model.Entry{{
+			NodeCore: model.NodeCore{ID: "01HB00000000000000000000E2", Slug: "readme", Label: "Readme"},
+			Kind:     model.KindInfo,
+			Info:     &model.InfoPayload{Content: "hi"},
+		}},
+	}
+	r := &fakeResolver{root: root}
+	st := newState(t)
+	st2, env, err := session.Apply(r, st, session.Action{
+		Type: session.ActionDrill, Target: "/readme",
+	})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if !env.OK {
+		t.Fatalf("envelope: %+v", env)
+	}
+	if st2.Cursor.EntryID != "01HB00000000000000000000E2" {
+		t.Fatalf("cursor.entry_id: got %q", st2.Cursor.EntryID)
+	}
+	if st2.Cursor.Mode != session.CursorModeEntry {
+		t.Fatalf("cursor.mode: got %q want entry", st2.Cursor.Mode)
+	}
+}
+
+func TestDrillByPathNotFound(t *testing.T) {
+	r := &fakeResolver{root: model.Rolodex{Slug: "merged-root"}}
+	st := newState(t)
+	_, env, err := session.Apply(r, st, session.Action{
+		Type: session.ActionDrill, Target: "/missing",
+	})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if env.OK {
+		t.Fatalf("expected ok=false")
+	}
+	// path package errors map to NOT_FOUND in the envelope.
+	if env.Error.Code != session.ErrNotFound {
+		t.Fatalf("expected NOT_FOUND, got %s", env.Error.Code)
+	}
+	// Suppress the unused-import lint on `path` until other tasks
+	// reference it directly.
+	_ = path.ErrNotFound
 }

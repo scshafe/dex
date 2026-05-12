@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/scshafe/dex/internal/model"
+	"github.com/scshafe/dex/internal/path"
 )
 
 // Resolver is the narrow store-shaped dependency the reducer needs.
@@ -37,24 +38,66 @@ func Apply(r Resolver, st State, a Action) (State, Envelope, error) {
 }
 
 func applyDrill(r Resolver, st State, a Action) (State, Envelope, error) {
-	// UUID target only in this task. Path target lands in Task 3.
-	rdx, ok, err := r.LookupByID(a.Target)
+	if a.Target == "" {
+		return st, failure(st, ErrInvalidTarget, "drill requires a target", "", ""), nil
+	}
+	if a.Target[0] == '/' {
+		return drillByPath(r, st, a.Target)
+	}
+	return drillByUUID(r, st, a.Target)
+}
+
+func drillByUUID(r Resolver, st State, target string) (State, Envelope, error) {
+	rdx, ok, err := r.LookupByID(target)
 	if err != nil {
 		return st, Envelope{}, fmt.Errorf("session: lookup: %w", err)
 	}
 	if !ok {
 		return st, failure(st, ErrInvalidTarget,
-			fmt.Sprintf("no rolodex with id %q", a.Target), "", ""), nil
+			fmt.Sprintf("no rolodex with id %q", target), "", ""), nil
+	}
+	next := touch(st)
+	next.PreviousCursors = append(next.PreviousCursors, st.Cursor)
+	next.Cursor = Cursor{RolodexID: rdx.ID, Mode: CursorModeBrowse}
+	return next, success(next), nil
+}
+
+func drillByPath(r Resolver, st State, target string) (State, Envelope, error) {
+	root, err := r.MergedRoot()
+	if err != nil {
+		return st, Envelope{}, fmt.Errorf("session: merged root: %w", err)
+	}
+	res, err := path.Resolve(r, root, target)
+	if err != nil {
+		// Map every path-resolution failure to NOT_FOUND. The
+		// underlying error message is preserved so callers can show
+		// a useful diagnosis.
+		return st, failure(st, ErrNotFound, err.Error(), "", ""), nil
 	}
 
 	next := touch(st)
 	next.PreviousCursors = append(next.PreviousCursors, st.Cursor)
-	next.Cursor = Cursor{
-		RolodexID: rdx.ID,
-		Path:      "", // UUID target wipes the display path
-		Mode:      CursorModeBrowse,
-	}
+	next.Cursor = cursorForEntry(res.Entry, res.ParentRolodex, target)
 	return next, success(next), nil
+}
+
+// cursorForEntry produces the post-drill cursor for a resolved entry.
+// Pointer entries advance into their target rolodex (browse mode).
+// Non-pointer entries land on the entry itself (entry mode).
+func cursorForEntry(e model.Entry, parent model.Rolodex, displayPath string) Cursor {
+	if e.Kind == model.KindPointer && e.Pointer != nil {
+		return Cursor{
+			RolodexID: e.Pointer.To,
+			Path:      displayPath,
+			Mode:      CursorModeBrowse,
+		}
+	}
+	return Cursor{
+		RolodexID: parent.ID,
+		EntryID:   e.ID,
+		Path:      displayPath,
+		Mode:      CursorModeEntry,
+	}
 }
 
 // touch returns a copy of st with Version bumped and LastTouched
