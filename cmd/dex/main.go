@@ -26,6 +26,8 @@ func main() {
 		os.Exit(runAdd(os.Args[2:]))
 	case "edit":
 		os.Exit(runEdit(os.Args[2:]))
+	case "rm":
+		os.Exit(runRm(os.Args[2:]))
 	case "version":
 		fmt.Println("dex 0.0.0-dev")
 	default:
@@ -97,6 +99,12 @@ func runEdit(args []string) int {
 	}, args)
 }
 
+func runRm(args []string) int {
+	return cli.RunRm(cli.RmOpts{
+		StoreRoot: os.Getenv("DEX_STORE"),
+	}, args)
+}
+
 func usage() {
 	fmt.Fprintln(os.Stderr, `Usage: dex <verb> [args]
 
@@ -121,6 +129,9 @@ Verbs:
   edit <entry-uuid> [--label "..."] [--context "..."]
                    [--content "..."] [--pointer-to <uuid>]
                          Modify an existing entry's mutable fields.
+  rm <entry-uuid>        Remove an entry from its parent rolodex.
+                         Dangling pointers (if any) are surfaced by
+                         dex doctor.
   version                Print version
 
 Environment:
