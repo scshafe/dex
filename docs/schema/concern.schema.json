@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dex.local/schema/concern.json",
+  "title": "Concern",
+  "type": "object",
+  "allOf": [
+    { "$ref": "rolodex.schema.json#/$defs/node_core" }
+  ],
+  "properties": {
+    "id":         { "$ref": "rolodex.schema.json#/$defs/ulid" },
+    "slug":       { "$ref": "rolodex.schema.json#/$defs/slug" },
+    "label":      { "type": "string", "minLength": 1 },
+    "context":    { "type": "string" },
+    "explore":    { "$ref": "rolodex.schema.json#/$defs/explore" },
+    "local_id":   { "$ref": "rolodex.schema.json#/$defs/local_id" },
+    "rolodex":    {
+      "type": "object",
+      "properties": { "to": { "$ref": "rolodex.schema.json#/$defs/ulid" } },
+      "required": ["to"],
+      "additionalProperties": false
+    },
+    "default":    { "type": "string" },
+    "required":   { "type": "boolean" },
+    "strict":     { "type": "boolean" },
+    "validator":  { "$ref": "rolodex.schema.json#/$defs/script_id" },
+    "depends_on": {
+      "type": "array",
+      "items": { "$ref": "rolodex.schema.json#/$defs/local_id" }
+    }
+  },
+  "required": ["id", "slug", "label", "local_id"],
+  "additionalProperties": false
+}

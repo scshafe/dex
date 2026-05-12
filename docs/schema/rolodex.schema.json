@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dex.local/schema/rolodex.json",
+  "title": "Rolodex",
+  "type": "object",
+  "properties": {
+    "schema_version": { "const": 1 },
+    "id":             { "$ref": "#/$defs/ulid" },
+    "slug":           { "$ref": "#/$defs/slug" },
+    "label":          { "type": "string", "minLength": 1 },
+    "context":        { "type": "string" },
+    "visibility":     { "enum": ["bundled", "personal", "private", "ephemeral"] },
+    "entries":        {
+      "type": "array",
+      "items": { "$ref": "entry.schema.json" }
+    }
+  },
+  "required": ["schema_version", "id", "slug", "label", "visibility", "entries"],
+  "additionalProperties": false,
+
+  "$defs": {
+    "ulid": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "Crockford base32 ULID (26 chars, no I/L/O/U)."
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "Lowercase kebab-case ASCII. Case-sensitive."
+    },
+    "local_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "description": "Template handle for a concern (snake_case ASCII)."
+    },
+    "script_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "Registered provider/validator script-id. Not a shell command."
+    },
+    "node_core": {
+      "type": "object",
+      "properties": {
+        "id":      { "$ref": "#/$defs/ulid" },
+        "slug":    { "$ref": "#/$defs/slug" },
+        "label":   { "type": "string", "minLength": 1 },
+        "context": { "type": "string" },
+        "explore": { "$ref": "#/$defs/explore" }
+      },
+      "required": ["id", "slug", "label"]
+    },
+    "explore": {
+      "type": "object",
+      "properties": {
+        "description": { "type": "string" },
+        "examples": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "description": { "type": "string" },
+              "invocation":  { "type": "string" }
+            },
+            "required": ["description", "invocation"],
+            "additionalProperties": false
+          }
+        },
+        "notes": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}
