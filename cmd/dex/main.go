@@ -20,6 +20,8 @@ func main() {
 		os.Exit(runExplore(os.Args[2:]))
 	case "search":
 		os.Exit(runSearch(os.Args[2:]))
+	case "activate":
+		os.Exit(runActivate(os.Args[2:]))
 	case "version":
 		fmt.Println("dex 0.0.0-dev")
 	default:
@@ -65,6 +67,20 @@ func runSearch(args []string) int {
 	}, fs.Args())
 }
 
+func runActivate(args []string) int {
+	fs := flag.NewFlagSet("activate", flag.ContinueOnError)
+	jsonOut := fs.Bool("json", false, "emit JSON for drillable kinds")
+	dryRun := fs.Bool("dry-run", false, "for command kind: print the assembled command without executing")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	return cli.RunActivate(cli.ActivateOpts{
+		StoreRoot: os.Getenv("DEX_STORE"),
+		JSON:      *jsonOut,
+		DryRun:    *dryRun,
+	}, fs.Args())
+}
+
 func usage() {
 	fmt.Fprintln(os.Stderr, `Usage: dex <verb> [args]
 
@@ -80,6 +96,9 @@ Verbs:
   search [--json] <query>
                          Case-insensitive substring search across all
                          entries (slug, label, context, explore desc).
+  activate [--json] [--dry-run] <uuid|path> [concern=value]...
+                         Run an entry. pointer drills; info prints
+                         content; command assembles and execs.
   version                Print version
 
 Environment:
