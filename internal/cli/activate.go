@@ -2,9 +2,11 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/scshafe/dex/internal/model"
@@ -190,7 +192,19 @@ func activateCommand(entry model.Entry, concernArgs []string, opts ActivateOpts)
 		return 0
 	}
 
-	// Real exec lands in Task 7.
-	fmt.Fprintln(opts.Stderr, "dex activate: command exec not yet implemented (use --dry-run)")
-	return 2
+	cmd := exec.Command("sh", "-c", assembled)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = opts.Stdout
+	cmd.Stderr = opts.Stderr
+	err := cmd.Run()
+	if err == nil {
+		return 0
+	}
+	// Propagate the child's exit code if available; otherwise generic 1.
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		return exitErr.ExitCode()
+	}
+	fmt.Fprintf(opts.Stderr, "dex activate: exec failed: %v\n", err)
+	return 1
 }

@@ -204,17 +204,6 @@ func TestActivateCommandMissingRequiredConcern(t *testing.T) {
 	}
 }
 
-func TestActivateCommandWithoutDryRunNotYetImplemented(t *testing.T) {
-	tmp := t.TempDir()
-	writeActivateCommandFixture(t, tmp)
-	var out, errBuf bytes.Buffer
-	exit := cli.RunActivate(cli.ActivateOpts{StoreRoot: tmp, Stdout: &out, Stderr: &errBuf},
-		[]string{"/echo-it", "msg=world"})
-	if exit == 0 {
-		t.Fatal("command without --dry-run should error in this task (exec lands in Task 7)")
-	}
-}
-
 func TestActivateCommandUnknownConcernIgnored(t *testing.T) {
 	tmp := t.TempDir()
 	writeActivateCommandFixture(t, tmp)
@@ -226,5 +215,95 @@ func TestActivateCommandUnknownConcernIgnored(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "echo hi") {
 		t.Fatalf("expected 'echo hi'; got %q", out.String())
+	}
+}
+
+func TestActivateCommandExecSuccess(t *testing.T) {
+	tmp := t.TempDir()
+	for _, d := range []string{"bundled", "personal", "private", "ephemeral"} {
+		_ = os.MkdirAll(filepath.Join(tmp, d), 0o755)
+	}
+	r := `{
+		"schema_version": 1,
+		"id": "01HB00000000000000000000R1",
+		"slug": "root",
+		"label": "Root",
+		"visibility": "bundled",
+		"entries": [{
+			"id":"01HB00000000000000000000C1","slug":"shell-true","label":"true",
+			"kind":"command","command":{"template":"true"}
+		}]
+	}`
+	if err := os.WriteFile(filepath.Join(tmp, "bundled", "root.json"), []byte(r), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var out, errBuf bytes.Buffer
+	exit := cli.RunActivate(cli.ActivateOpts{StoreRoot: tmp, Stdout: &out, Stderr: &errBuf},
+		[]string{"/shell-true"})
+	if exit != 0 {
+		t.Fatalf("exit=%d stderr=%q", exit, errBuf.String())
+	}
+}
+
+func TestActivateCommandExecPropagatesExitCode(t *testing.T) {
+	tmp := t.TempDir()
+	for _, d := range []string{"bundled", "personal", "private", "ephemeral"} {
+		_ = os.MkdirAll(filepath.Join(tmp, d), 0o755)
+	}
+	r := `{
+		"schema_version": 1,
+		"id": "01HB00000000000000000000R1",
+		"slug": "root",
+		"label": "Root",
+		"visibility": "bundled",
+		"entries": [{
+			"id":"01HB00000000000000000000C1","slug":"shell-false","label":"false",
+			"kind":"command","command":{"template":"false"}
+		}]
+	}`
+	if err := os.WriteFile(filepath.Join(tmp, "bundled", "root.json"), []byte(r), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var out, errBuf bytes.Buffer
+	exit := cli.RunActivate(cli.ActivateOpts{StoreRoot: tmp, Stdout: &out, Stderr: &errBuf},
+		[]string{"/shell-false"})
+	if exit == 0 {
+		t.Fatal("expected nonzero exit from `false`")
+	}
+}
+
+func TestActivateCommandExecStdoutCaptured(t *testing.T) {
+	tmp := t.TempDir()
+	for _, d := range []string{"bundled", "personal", "private", "ephemeral"} {
+		_ = os.MkdirAll(filepath.Join(tmp, d), 0o755)
+	}
+	r := `{
+		"schema_version": 1,
+		"id": "01HB00000000000000000000R1",
+		"slug": "root",
+		"label": "Root",
+		"visibility": "bundled",
+		"entries": [{
+			"id":"01HB00000000000000000000C1","slug":"shell-echo","label":"echo",
+			"kind":"command","command":{
+				"template":"echo {msg}",
+				"concerns":[{
+					"id":"01HB00000000000000000000K1","local_id":"msg","slug":"msg-concern",
+					"label":"msg","required":true,"strict":false
+				}]
+			}
+		}]
+	}`
+	if err := os.WriteFile(filepath.Join(tmp, "bundled", "root.json"), []byte(r), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	exit := cli.RunActivate(cli.ActivateOpts{StoreRoot: tmp, Stdout: &out},
+		[]string{"/shell-echo", "msg=hello-from-shell"})
+	if exit != 0 {
+		t.Fatalf("exit=%d", exit)
+	}
+	if !strings.Contains(out.String(), "hello-from-shell") {
+		t.Fatalf("expected exec stdout in our stdout; got %q", out.String())
 	}
 }
