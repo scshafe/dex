@@ -61,3 +61,10 @@ target/
 # OS / misc
 Thumbs.db
 ehthumbs.db
+
+# Go build artifacts
+/dex
+/bin/
+*.test
+*.out
+coverage.html
