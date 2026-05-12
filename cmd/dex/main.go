@@ -30,6 +30,8 @@ func main() {
 		os.Exit(runRm(os.Args[2:]))
 	case "promote":
 		os.Exit(runPromote(os.Args[2:]))
+	case "doctor":
+		os.Exit(runDoctor(os.Args[2:]))
 	case "version":
 		fmt.Println("dex 0.0.0-dev")
 	default:
@@ -113,6 +115,12 @@ func runPromote(args []string) int {
 	}, args)
 }
 
+func runDoctor(args []string) int {
+	return cli.RunDoctor(cli.DoctorOpts{
+		StoreRoot: os.Getenv("DEX_STORE"),
+	}, args)
+}
+
 func usage() {
 	fmt.Fprintln(os.Stderr, `Usage: dex <verb> [args]
 
@@ -143,6 +151,8 @@ Verbs:
   promote <rolodex-uuid> --to <bundled|personal|private|ephemeral>
                          Move a rolodex to a different visibility tier.
                          ULID is preserved so backlinks survive.
+  doctor                 Validate the store: schema check + dangling
+                         pointer/concern-rolodex detection.
   version                Print version
 
 Environment:
