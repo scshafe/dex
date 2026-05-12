@@ -710,3 +710,33 @@ func TestActivateCommandAllOptionalNoDefaultsErrors(t *testing.T) {
 		t.Fatalf("error.code: got %s", env.Error.Code)
 	}
 }
+
+func TestEnvelopeOfMirrorsState(t *testing.T) {
+	st := newState(t)
+	st.Cursor = session.Cursor{RolodexID: "rdx-1", Mode: session.CursorModeBrowse}
+	st.Version = 5
+	st.Resolved = map[string]string{"k": "v"}
+
+	env := session.EnvelopeOf(st)
+	if !env.OK {
+		t.Fatalf("EnvelopeOf should always return ok=true")
+	}
+	if env.Session.ID != st.ID {
+		t.Fatalf("session.id: got %q want %q", env.Session.ID, st.ID)
+	}
+	if env.Session.Cursor.RolodexID != "rdx-1" {
+		t.Fatalf("cursor.rolodex_id: got %q", env.Session.Cursor.RolodexID)
+	}
+	if env.Session.Version != 5 {
+		t.Fatalf("version: got %d want 5", env.Session.Version)
+	}
+	if env.Session.Resolved["k"] != "v" {
+		t.Fatalf("resolved[k]: got %q", env.Session.Resolved["k"])
+	}
+	if env.Error != nil {
+		t.Fatalf("error should be nil, got %+v", env.Error)
+	}
+	if len(env.Effects) != 0 {
+		t.Fatalf("effects should be empty, got %+v", env.Effects)
+	}
+}

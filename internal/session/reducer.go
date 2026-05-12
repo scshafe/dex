@@ -328,6 +328,17 @@ func failure(st State, code ErrorCode, msg, concern, hint string) Envelope {
 	}
 }
 
+// EnvelopeOf returns the read-only envelope projection of st. Used by
+// `dex session state` to render the current cursor/pending/resolved
+// without advancing the reducer. ok is always true; Effects is empty;
+// Error is nil. State.Version is NOT bumped.
+func EnvelopeOf(st State) Envelope {
+	return Envelope{
+		OK:      true,
+		Session: viewOf(st),
+	}
+}
+
 func viewOf(st State) SessionView {
 	return SessionView{
 		ID:              st.ID,

@@ -3,6 +3,7 @@ package session_test
 import (
 	"crypto/rand"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -98,5 +99,48 @@ func TestNewSessionGCsExpiredFiles(t *testing.T) {
 	files, _ := os.ReadDir(m.Dir())
 	if len(files) != 1 {
 		t.Fatalf("expected 1 file (only the new one), got %d", len(files))
+	}
+}
+
+func TestListReturnsAllSessions(t *testing.T) {
+	m := newManager(t)
+	a, err := m.NewSession()
+	if err != nil {
+		t.Fatalf("new a: %v", err)
+	}
+	b, err := m.NewSession()
+	if err != nil {
+		t.Fatalf("new b: %v", err)
+	}
+
+	list, err := m.List()
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("list len: got %d want 2", len(list))
+	}
+	ids := map[string]bool{list[0].ID: true, list[1].ID: true}
+	if !ids[a.ID] || !ids[b.ID] {
+		t.Fatalf("list missing one of the created sessions: got ids=%v want %q and %q",
+			ids, a.ID, b.ID)
+	}
+}
+
+func TestListIgnoresNonSessionFiles(t *testing.T) {
+	m := newManager(t)
+	if _, err := m.NewSession(); err != nil {
+		t.Fatalf("new: %v", err)
+	}
+	// Drop a non-session file in the dir.
+	if err := os.WriteFile(filepath.Join(m.Dir(), "junk.txt"), []byte("noise"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	list, err := m.List()
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("list len: got %d want 1 (the junk file should be ignored)", len(list))
 	}
 }

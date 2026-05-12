@@ -122,6 +122,37 @@ func (m *Manager) End(id string) error {
 	return nil
 }
 
+// List returns every session file in the dir, parsed. Non-session
+// files (anything not matching ses_*.json) are silently skipped.
+// Unparseable session files surface as an error — they're a data-loss
+// signal, not noise.
+func (m *Manager) List() ([]State, error) {
+	entries, err := os.ReadDir(m.dir)
+	if err != nil {
+		return nil, fmt.Errorf("session: list readdir: %w", err)
+	}
+	var out []State
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if !strings.HasPrefix(name, "ses_") || !strings.HasSuffix(name, ".json") {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(m.dir, name))
+		if err != nil {
+			return nil, fmt.Errorf("session: list %s: %w", name, err)
+		}
+		var st State
+		if err := json.Unmarshal(b, &st); err != nil {
+			return nil, fmt.Errorf("session: list parse %s: %w", name, err)
+		}
+		out = append(out, st)
+	}
+	return out, nil
+}
+
 // gc removes session files whose last_touched is older than SessionTTL.
 // Errors on individual files are swallowed — GC is opportunistic, not
 // load-bearing.
