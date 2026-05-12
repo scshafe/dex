@@ -24,6 +24,8 @@ func main() {
 		os.Exit(runActivate(os.Args[2:]))
 	case "add":
 		os.Exit(runAdd(os.Args[2:]))
+	case "edit":
+		os.Exit(runEdit(os.Args[2:]))
 	case "version":
 		fmt.Println("dex 0.0.0-dev")
 	default:
@@ -89,6 +91,12 @@ func runAdd(args []string) int {
 	}, args)
 }
 
+func runEdit(args []string) int {
+	return cli.RunEdit(cli.EditOpts{
+		StoreRoot: os.Getenv("DEX_STORE"),
+	}, args)
+}
+
 func usage() {
 	fmt.Fprintln(os.Stderr, `Usage: dex <verb> [args]
 
@@ -110,6 +118,9 @@ Verbs:
   add --parent <uuid> {--slug ... --label ... --kind ... <payload>}|{--from-json <path|->}
                          Add an entry to a rolodex. Auto-generates the
                          new entry's ULID and prints it to stdout.
+  edit <entry-uuid> [--label "..."] [--context "..."]
+                   [--content "..."] [--pointer-to <uuid>]
+                         Modify an existing entry's mutable fields.
   version                Print version
 
 Environment:
