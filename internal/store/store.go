@@ -197,3 +197,28 @@ func (s *Store) LookupByID(id string) (model.Rolodex, bool, error) {
 	}
 	return model.Rolodex{}, false, nil
 }
+
+// LookupEntryByID scans every tier (including ephemeral) for an entry
+// with the given ID. The second return is the parent rolodex; the third
+// is false when not found. Errors are reserved for IO/schema failures.
+func (s *Store) LookupEntryByID(id string) (model.Entry, model.Rolodex, bool, error) {
+	for _, v := range []model.Visibility{
+		model.VisibilityBundled,
+		model.VisibilityPersonal,
+		model.VisibilityPrivate,
+		model.VisibilityEphemeral,
+	} {
+		rolodexes, err := s.LoadTier(v)
+		if err != nil {
+			return model.Entry{}, model.Rolodex{}, false, err
+		}
+		for _, r := range rolodexes {
+			for _, e := range r.Entries {
+				if e.ID == id {
+					return e, r, true, nil
+				}
+			}
+		}
+	}
+	return model.Entry{}, model.Rolodex{}, false, nil
+}

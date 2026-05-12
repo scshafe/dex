@@ -186,3 +186,38 @@ func TestLookupByIDMissing(t *testing.T) {
 		t.Fatal("expected not-found")
 	}
 }
+
+func TestLookupEntryByID(t *testing.T) {
+	s, err := store.Open("testdata/simple")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// testdata/simple's bundled root contains an entry with id 01HQ7AB000000000000000ENT1.
+	entry, parent, ok, err := s.LookupEntryByID("01HQ7AB000000000000000ENT1")
+	if err != nil {
+		t.Fatalf("lookup: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected to find the bundled root's tools entry")
+	}
+	if entry.Slug != "tools" {
+		t.Fatalf("entry.slug: got %q want tools", entry.Slug)
+	}
+	if parent.Slug != "root" {
+		t.Fatalf("parent.slug: got %q want root", parent.Slug)
+	}
+}
+
+func TestLookupEntryByIDMissing(t *testing.T) {
+	s, err := store.Open("testdata/simple")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, ok, err := s.LookupEntryByID("01HQ7AB000000000000000ZZZZ")
+	if err != nil {
+		t.Fatalf("lookup: %v", err)
+	}
+	if ok {
+		t.Fatal("expected not-found")
+	}
+}
