@@ -116,3 +116,76 @@ func TestDrillByUUIDNotFound(t *testing.T) {
 		t.Fatalf("failed action must not bump version (got %d, want %d)", st2.Version, st.Version)
 	}
 }
+
+func TestApplyDoesNotMutateCallerState(t *testing.T) {
+	tools := model.Rolodex{
+		SchemaVersion: 1,
+		ID:            "01HB00000000000000000000T1",
+		Slug:          "tools",
+		Label:         "Tools",
+		Visibility:    model.VisibilityBundled,
+	}
+	r := &fakeResolver{
+		rolodexes: map[string]model.Rolodex{tools.ID: tools},
+		entries:   map[string]entryHit{},
+		root:      model.Rolodex{Slug: "merged-root"},
+	}
+
+	st := newState(t)
+	// Pre-seed mutable state so we have something to observe.
+	st.Resolved["seed"] = "value"
+	st.PendingConcerns = append(st.PendingConcerns,
+		session.PendingConcern{LocalID: "k"})
+	// Make sure PreviousCursors has spare capacity — that's the case
+	// where the slice header alias would let next overwrite st.
+	st.PreviousCursors = make([]session.Cursor, 0, 4)
+
+	snapResolved := map[string]string{}
+	for k, v := range st.Resolved {
+		snapResolved[k] = v
+	}
+	snapPending := append([]session.PendingConcern(nil), st.PendingConcerns...)
+	snapPrev := append([]session.Cursor(nil), st.PreviousCursors...)
+
+	next, _, err := session.Apply(r, st, session.Action{
+		Type:   session.ActionDrill,
+		Target: tools.ID,
+	})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+
+	// Mutate the post-action state in every reference-typed field.
+	next.Resolved["seed"] = "MUTATED"
+	next.Resolved["new"] = "added"
+	next.PendingConcerns[0].LocalID = "MUTATED"
+	if len(next.PreviousCursors) > 0 {
+		next.PreviousCursors[0].RolodexID = "MUTATED"
+	}
+
+	// Caller's state must still look exactly like the pre-call snapshot.
+	if got, want := st.Resolved, snapResolved; !mapsEqual(got, want) {
+		t.Fatalf("caller's Resolved was mutated: got %+v want %+v", got, want)
+	}
+	if len(st.PendingConcerns) != len(snapPending) ||
+		st.PendingConcerns[0].LocalID != snapPending[0].LocalID {
+		t.Fatalf("caller's PendingConcerns was mutated: got %+v want %+v",
+			st.PendingConcerns, snapPending)
+	}
+	if len(st.PreviousCursors) != len(snapPrev) {
+		t.Fatalf("caller's PreviousCursors length changed: got %d want %d",
+			len(st.PreviousCursors), len(snapPrev))
+	}
+}
+
+func mapsEqual(a, b map[string]string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, v := range a {
+		if b[k] != v {
+			return false
+		}
+	}
+	return true
+}

@@ -63,6 +63,15 @@ func touch(st State) State {
 	out := st
 	out.Version = st.Version + 1
 	out.LastTouched = time.Now()
+	// Detach from the caller's backing storage so the reducer stays
+	// pure: every successful action returns a state that doesn't
+	// share mutable structure with its input.
+	out.PreviousCursors = append([]Cursor(nil), st.PreviousCursors...)
+	out.Resolved = make(map[string]string, len(st.Resolved))
+	for k, v := range st.Resolved {
+		out.Resolved[k] = v
+	}
+	out.PendingConcerns = append([]PendingConcern(nil), st.PendingConcerns...)
 	return out
 }
 
