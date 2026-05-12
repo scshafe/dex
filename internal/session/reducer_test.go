@@ -280,3 +280,49 @@ func TestDrillByPathNotFound(t *testing.T) {
 	// reference it directly.
 	_ = path.ErrNotFound
 }
+
+func TestPopRestoresPreviousCursor(t *testing.T) {
+	tools := model.Rolodex{
+		SchemaVersion: 1, ID: "01HB00000000000000000000T1", Slug: "tools", Label: "Tools",
+		Visibility: model.VisibilityBundled,
+	}
+	r := &fakeResolver{
+		rolodexes: map[string]model.Rolodex{tools.ID: tools},
+		root:      model.Rolodex{Slug: "merged-root"},
+	}
+	st := newState(t)
+	st, _, _ = session.Apply(r, st, session.Action{Type: session.ActionDrill, Target: tools.ID})
+	if st.Cursor.RolodexID != tools.ID {
+		t.Fatalf("setup: drill failed, cursor=%+v", st.Cursor)
+	}
+
+	st2, env, err := session.Apply(r, st, session.Action{Type: session.ActionPop})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if !env.OK {
+		t.Fatalf("envelope: %+v", env)
+	}
+	if st2.Cursor.RolodexID != "" {
+		t.Fatalf("cursor.rolodex_id after pop: got %q want empty", st2.Cursor.RolodexID)
+	}
+	if len(st2.PreviousCursors) != 0 {
+		t.Fatalf("previous_cursors after pop: got %d want 0", len(st2.PreviousCursors))
+	}
+}
+
+func TestPopOnEmptyStackIsNoop(t *testing.T) {
+	r := &fakeResolver{root: model.Rolodex{Slug: "merged-root"}}
+	st := newState(t)
+	st2, env, err := session.Apply(r, st, session.Action{Type: session.ActionPop})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if !env.OK {
+		t.Fatalf("envelope: %+v", env)
+	}
+	// Version still advances — pop is a step.
+	if st2.Version != st.Version+1 {
+		t.Fatalf("version: got %d want %d", st2.Version, st.Version+1)
+	}
+}

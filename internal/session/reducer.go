@@ -32,9 +32,26 @@ func Apply(r Resolver, st State, a Action) (State, Envelope, error) {
 	switch a.Type {
 	case ActionDrill:
 		return applyDrill(r, st, a)
+	case ActionPop:
+		return applyPop(st)
 	}
 
 	return st, Envelope{}, fmt.Errorf("session: unknown action %q", a.Type)
+}
+
+// applyPop replaces the cursor with the most recent PreviousCursors
+// entry, decrementing that stack. An empty stack is a no-op (still
+// returns ok=true), but Version is bumped because pop is a step.
+//
+// Reslicing operates on next.PreviousCursors — which touch already
+// deep-copied — so we never touch the caller's backing storage.
+func applyPop(st State) (State, Envelope, error) {
+	next := touch(st)
+	if n := len(next.PreviousCursors); n > 0 {
+		next.Cursor = next.PreviousCursors[n-1]
+		next.PreviousCursors = next.PreviousCursors[:n-1]
+	}
+	return next, success(next), nil
 }
 
 func applyDrill(r Resolver, st State, a Action) (State, Envelope, error) {
