@@ -25,3 +25,12 @@ The canonical contract for `dex` on-disk data. Three files:
 
 These schemas are embedded into the binary via `//go:embed` from
 `internal/schema/schema.go`.
+
+## Sync to embedded copy
+
+The Go binary embeds these files from `internal/schema/schemas/`. After
+editing any file in this directory, run:
+
+    cp docs/schema/*.json internal/schema/schemas/
+
+A future task will replace this with a `go generate` hook.

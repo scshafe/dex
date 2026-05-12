@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dex.local/schema/entry.json",
+  "title": "Entry",
+  "type": "object",
+  "properties": {
+    "id":      { "$ref": "rolodex.schema.json#/$defs/ulid" },
+    "slug":    { "$ref": "rolodex.schema.json#/$defs/slug" },
+    "label":   { "type": "string", "minLength": 1 },
+    "context": { "type": "string" },
+    "explore": { "$ref": "rolodex.schema.json#/$defs/explore" },
+    "kind":    { "enum": ["pointer", "command", "info"] },
+    "pointer": {
+      "type": "object",
+      "properties": { "to": { "$ref": "rolodex.schema.json#/$defs/ulid" } },
+      "required": ["to"],
+      "additionalProperties": false
+    },
+    "command": {
+      "type": "object",
+      "properties": {
+        "template": { "type": "string", "minLength": 1 },
+        "concerns": {
+          "type": "array",
+          "items": { "$ref": "concern.schema.json" }
+        }
+      },
+      "required": ["template"],
+      "additionalProperties": false
+    },
+    "info": {
+      "type": "object",
+      "properties": {
+        "content":  { "type": "string" },
+        "provider": { "$ref": "rolodex.schema.json#/$defs/script_id" }
+      },
+      "oneOf": [
+        { "required": ["content"] },
+        { "required": ["provider"] }
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": ["id", "slug", "label", "kind"],
+  "allOf": [
+    { "$ref": "rolodex.schema.json#/$defs/node_core" },
+    {
+      "if":   { "properties": { "kind": { "const": "pointer" } } },
+      "then": { "required": ["pointer"] }
+    },
+    {
+      "if":   { "properties": { "kind": { "const": "command" } } },
+      "then": { "required": ["command"] }
+    },
+    {
+      "if":   { "properties": { "kind": { "const": "info" } } },
+      "then": { "required": ["info"] }
+    }
+  ],
+  "additionalProperties": false
+}
