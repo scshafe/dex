@@ -34,9 +34,50 @@ func Apply(r Resolver, st State, a Action) (State, Envelope, error) {
 		return applyDrill(r, st, a)
 	case ActionPop:
 		return applyPop(st)
+	case ActionActivate:
+		return applyActivate(r, st)
 	}
 
 	return st, Envelope{}, fmt.Errorf("session: unknown action %q", a.Type)
+}
+
+func applyActivate(r Resolver, st State) (State, Envelope, error) {
+	if st.Cursor.EntryID == "" {
+		return st, failure(st, ErrInvalidTarget,
+			"activate requires the cursor to be on an entry", "", ""), nil
+	}
+	entry, _, ok, err := r.LookupEntryByID(st.Cursor.EntryID)
+	if err != nil {
+		return st, Envelope{}, fmt.Errorf("session: lookup entry: %w", err)
+	}
+	if !ok {
+		// Stale cursor — the entry was removed by an out-of-band
+		// mutation (per pinned decision #4 in the plan).
+		return st, failure(st, ErrStaleSession,
+			fmt.Sprintf("entry %q no longer exists", st.Cursor.EntryID),
+			"", "start a new session"), nil
+	}
+
+	switch entry.Kind {
+	case model.KindInfo:
+		return activateInfo(st, entry)
+	}
+	return st, failure(st, ErrInvalidTarget,
+		fmt.Sprintf("activate not implemented for kind %q", entry.Kind), "", ""), nil
+}
+
+func activateInfo(st State, entry model.Entry) (State, Envelope, error) {
+	if entry.Info == nil {
+		return st, failure(st, ErrSchemaError,
+			fmt.Sprintf("info entry %q has nil payload", entry.Slug), "", ""), nil
+	}
+	if entry.Info.Provider != "" {
+		return st, failure(st, ErrProviderFailed,
+			fmt.Sprintf("info entry %q uses provider %q (not implemented in v1)",
+				entry.Slug, entry.Info.Provider), "", ""), nil
+	}
+	next := touch(st)
+	return next, success(next, Effect{Type: EffectStdout, Content: entry.Info.Content}), nil
 }
 
 // applyPop replaces the cursor with the most recent PreviousCursors

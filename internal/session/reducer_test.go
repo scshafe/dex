@@ -326,3 +326,50 @@ func TestPopOnEmptyStackIsNoop(t *testing.T) {
 		t.Fatalf("version: got %d want %d", st2.Version, st.Version+1)
 	}
 }
+
+func TestActivateInfoContentEmitsStdout(t *testing.T) {
+	parent := model.Rolodex{ID: "01HB00000000000000000000P1", Slug: "p"}
+	info := model.Entry{
+		NodeCore: model.NodeCore{ID: "01HB00000000000000000000I1", Slug: "readme", Label: "R"},
+		Kind:     model.KindInfo,
+		Info:     &model.InfoPayload{Content: "hello"},
+	}
+	r := &fakeResolver{
+		rolodexes: map[string]model.Rolodex{parent.ID: parent},
+		entries:   map[string]entryHit{info.ID: {entry: info, parent: parent}},
+		root:      model.Rolodex{Slug: "merged-root"},
+	}
+	st := newState(t)
+	st.Cursor = session.Cursor{
+		RolodexID: parent.ID, EntryID: info.ID, Mode: session.CursorModeEntry,
+	}
+	_, env, err := session.Apply(r, st, session.Action{Type: session.ActionActivate})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if !env.OK {
+		t.Fatalf("envelope: %+v", env)
+	}
+	if len(env.Effects) != 1 || env.Effects[0].Type != session.EffectStdout {
+		t.Fatalf("effects: got %+v want one stdout", env.Effects)
+	}
+	if env.Effects[0].Content != "hello" {
+		t.Fatalf("stdout content: got %q want hello", env.Effects[0].Content)
+	}
+}
+
+func TestActivateRequiresEntryUnderCursor(t *testing.T) {
+	r := &fakeResolver{root: model.Rolodex{Slug: "merged-root"}}
+	st := newState(t)
+	// Cursor is in browse mode; no entry to activate.
+	_, env, err := session.Apply(r, st, session.Action{Type: session.ActionActivate})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if env.OK {
+		t.Fatalf("expected ok=false")
+	}
+	if env.Error.Code != session.ErrInvalidTarget {
+		t.Fatalf("error.code: got %s want INVALID_TARGET", env.Error.Code)
+	}
+}
