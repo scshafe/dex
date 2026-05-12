@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/scshafe/dex/internal/model"
 	"github.com/scshafe/dex/internal/schema"
@@ -119,4 +120,57 @@ func (s *Store) readRolodex(path string) (model.Rolodex, error) {
 		return zero, fmt.Errorf("decode: %w", err)
 	}
 	return r, nil
+}
+
+const RootSlug = "root"
+
+// MergedRoot constructs the merged root rolodex by union-ing the per-tier
+// root rolodexes (those with slug == "root") in precedence order
+// (private > personal > bundled). Ephemeral is excluded.
+//
+// Collisions are resolved by entry slug: a higher-precedence entry shadows
+// a lower-precedence entry with the same slug. The shadowed entry is
+// reachable via `<slug>@<visibility>` addressing in a later iteration of
+// the verb surface — for now it's simply hidden.
+func (s *Store) MergedRoot() (model.Rolodex, error) {
+	tiers := []model.Visibility{
+		model.VisibilityBundled,
+		model.VisibilityPersonal,
+		model.VisibilityPrivate,
+	}
+
+	bySlug := map[string]model.Entry{}
+	for _, v := range tiers {
+		rolodexes, err := s.LoadTier(v)
+		if err != nil {
+			return model.Rolodex{}, err
+		}
+		for _, r := range rolodexes {
+			if r.Slug != RootSlug {
+				continue
+			}
+			for _, e := range r.Entries {
+				// Lower-precedence is loaded first; later iteration
+				// overwrites (= shadows).
+				bySlug[e.Slug] = e
+			}
+		}
+	}
+
+	out := model.Rolodex{
+		SchemaVersion: 1,
+		ID:            "", // synthesized; no on-disk identity
+		Slug:          "merged-root",
+		Label:         "Merged root",
+		Visibility:    model.VisibilityBundled, // a label, not authoritative
+		Entries:       make([]model.Entry, 0, len(bySlug)),
+	}
+	for _, e := range bySlug {
+		out.Entries = append(out.Entries, e)
+	}
+	// Sort by slug for stable output.
+	sort.Slice(out.Entries, func(i, j int) bool {
+		return out.Entries[i].Slug < out.Entries[j].Slug
+	})
+	return out, nil
 }

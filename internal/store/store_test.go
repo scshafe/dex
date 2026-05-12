@@ -114,3 +114,44 @@ func TestLoadTierRejectsInvalid(t *testing.T) {
 		t.Fatal("expected schema-validation error on missing id")
 	}
 }
+
+func TestMergedRootEmpty(t *testing.T) {
+	tmp := t.TempDir()
+	s, err := store.Open(tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err := s.MergedRoot()
+	if err != nil {
+		t.Fatalf("merged root: %v", err)
+	}
+	if len(root.Entries) != 0 {
+		t.Fatalf("expected empty merged root, got %d entries", len(root.Entries))
+	}
+}
+
+func TestMergedRootPrecedence(t *testing.T) {
+	s, err := store.Open("testdata/merge-precedence")
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	root, err := s.MergedRoot()
+	if err != nil {
+		t.Fatalf("merged root: %v", err)
+	}
+	// The fixture has the slug "tools" defined in both bundled and personal.
+	// Personal should win.
+	var tools *model.Entry
+	for i, e := range root.Entries {
+		if e.Slug == "tools" {
+			tools = &root.Entries[i]
+			break
+		}
+	}
+	if tools == nil {
+		t.Fatal("merged root missing slug 'tools'")
+	}
+	if tools.Label != "Tools (personal)" {
+		t.Fatalf("expected personal version to win; got label %q", tools.Label)
+	}
+}

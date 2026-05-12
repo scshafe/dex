@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "id": "01HP00000000000000000000R1",
+  "slug": "root",
+  "label": "Personal root",
+  "visibility": "personal",
+  "entries": [
+    {
+      "id": "01HP00000000000000000000E1",
+      "slug": "tools",
+      "label": "Tools (personal)",
+      "kind": "pointer",
+      "pointer": { "to": "01HP00000000000000000000T1" }
+    }
+  ]
+}
