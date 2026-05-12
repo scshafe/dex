@@ -1,8 +1,11 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
+
+	"github.com/scshafe/dex/internal/cli"
 )
 
 func main() {
@@ -12,8 +15,7 @@ func main() {
 	}
 	switch os.Args[1] {
 	case "ls":
-		// wired up in Task 10
-		fmt.Println("ls: not yet implemented")
+		os.Exit(runLs(os.Args[2:]))
 	case "version":
 		fmt.Println("dex 0.0.0-dev")
 	default:
@@ -23,10 +25,26 @@ func main() {
 	}
 }
 
+func runLs(args []string) int {
+	fs := flag.NewFlagSet("ls", flag.ContinueOnError)
+	jsonOut := fs.Bool("json", false, "emit JSON instead of human-readable output")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	return cli.RunLs(cli.LsOpts{
+		StoreRoot: os.Getenv("DEX_STORE"),
+		JSON:      *jsonOut,
+	}, fs.Args())
+}
+
 func usage() {
 	fmt.Fprintln(os.Stderr, `Usage: dex <verb> [args]
 
 Verbs:
-  ls [<uuid>]   List entries (merged root, or a specific rolodex)
-  version       Print version`)
+  ls [--json] [<uuid>]   List entries (merged root, or a specific rolodex)
+  version                Print version
+
+Environment:
+  DEX_STORE              Path to the store root (must contain
+                         bundled/personal/private/ephemeral dirs)`)
 }
