@@ -373,3 +373,37 @@ func TestActivateRequiresEntryUnderCursor(t *testing.T) {
 		t.Fatalf("error.code: got %s want INVALID_TARGET", env.Error.Code)
 	}
 }
+
+func TestActivatePointerDrillsIntoTarget(t *testing.T) {
+	target := model.Rolodex{ID: "01HB00000000000000000000T2", Slug: "t2"}
+	parent := model.Rolodex{ID: "01HB00000000000000000000P1", Slug: "p"}
+	ptr := model.Entry{
+		NodeCore: model.NodeCore{ID: "01HB00000000000000000000I2", Slug: "go", Label: "go"},
+		Kind:     model.KindPointer,
+		Pointer:  &model.PointerPayload{To: target.ID},
+	}
+	r := &fakeResolver{
+		rolodexes: map[string]model.Rolodex{target.ID: target, parent.ID: parent},
+		entries:   map[string]entryHit{ptr.ID: {entry: ptr, parent: parent}},
+		root:      model.Rolodex{Slug: "merged-root"},
+	}
+	st := newState(t)
+	st.Cursor = session.Cursor{RolodexID: parent.ID, EntryID: ptr.ID, Mode: session.CursorModeEntry}
+
+	st2, env, err := session.Apply(r, st, session.Action{Type: session.ActionActivate})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if !env.OK {
+		t.Fatalf("envelope: %+v", env)
+	}
+	if st2.Cursor.RolodexID != target.ID {
+		t.Fatalf("cursor.rolodex_id: got %q want %q", st2.Cursor.RolodexID, target.ID)
+	}
+	if st2.Cursor.Mode != session.CursorModeBrowse {
+		t.Fatalf("cursor.mode: got %q want browse", st2.Cursor.Mode)
+	}
+	if len(env.Effects) != 0 {
+		t.Fatalf("effects: got %+v want none", env.Effects)
+	}
+}

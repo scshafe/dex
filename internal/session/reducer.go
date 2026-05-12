@@ -61,9 +61,31 @@ func applyActivate(r Resolver, st State) (State, Envelope, error) {
 	switch entry.Kind {
 	case model.KindInfo:
 		return activateInfo(st, entry)
+	case model.KindPointer:
+		return activatePointer(r, st, entry)
 	}
 	return st, failure(st, ErrInvalidTarget,
 		fmt.Sprintf("activate not implemented for kind %q", entry.Kind), "", ""), nil
+}
+
+func activatePointer(r Resolver, st State, entry model.Entry) (State, Envelope, error) {
+	if entry.Pointer == nil {
+		return st, failure(st, ErrSchemaError,
+			fmt.Sprintf("pointer entry %q has nil payload", entry.Slug), "", ""), nil
+	}
+	target, ok, err := r.LookupByID(entry.Pointer.To)
+	if err != nil {
+		return st, Envelope{}, fmt.Errorf("session: lookup pointer target: %w", err)
+	}
+	if !ok {
+		return st, failure(st, ErrNotFound,
+			fmt.Sprintf("pointer %q targets unknown rolodex %q", entry.Slug, entry.Pointer.To),
+			"", ""), nil
+	}
+	next := touch(st)
+	next.PreviousCursors = append(next.PreviousCursors, st.Cursor)
+	next.Cursor = Cursor{RolodexID: target.ID, Mode: CursorModeBrowse}
+	return next, success(next), nil
 }
 
 func activateInfo(st State, entry model.Entry) (State, Envelope, error) {
