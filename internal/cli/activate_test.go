@@ -105,3 +105,126 @@ func TestActivateRequiresArg(t *testing.T) {
 		t.Fatal("activate without arg should error")
 	}
 }
+
+func writeActivateCommandFixture(t *testing.T, root string) {
+	t.Helper()
+	for _, d := range []string{"bundled", "personal", "private", "ephemeral"} {
+		if err := os.MkdirAll(filepath.Join(root, d), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	r := `{
+		"schema_version": 1,
+		"id": "01HB00000000000000000000R1",
+		"slug": "root",
+		"label": "Root",
+		"visibility": "bundled",
+		"entries": [
+			{
+				"id": "01HB00000000000000000000C1",
+				"slug": "echo-it",
+				"label": "Echo",
+				"kind": "command",
+				"command": {
+					"template": "echo {msg}",
+					"concerns": [{
+						"id": "01HB00000000000000000000K1",
+						"local_id": "msg",
+						"slug": "msg-concern",
+						"label": "Message",
+						"required": true,
+						"strict": false
+					}]
+				}
+			},
+			{
+				"id": "01HB00000000000000000000C2",
+				"slug": "echo-default",
+				"label": "Echo default",
+				"kind": "command",
+				"command": {
+					"template": "echo {msg}",
+					"concerns": [{
+						"id": "01HB00000000000000000000K2",
+						"local_id": "msg",
+						"slug": "msg-concern",
+						"label": "Message",
+						"default": "hello",
+						"required": true,
+						"strict": false
+					}]
+				}
+			}
+		]
+	}`
+	if err := os.WriteFile(filepath.Join(root, "bundled", "root.json"), []byte(r), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestActivateCommandDryRunSubstitutesConcerns(t *testing.T) {
+	tmp := t.TempDir()
+	writeActivateCommandFixture(t, tmp)
+	var out bytes.Buffer
+	exit := cli.RunActivate(cli.ActivateOpts{StoreRoot: tmp, DryRun: true, Stdout: &out},
+		[]string{"/echo-it", "msg=world"})
+	if exit != 0 {
+		t.Fatalf("exit=%d out=%s", exit, out.String())
+	}
+	if !strings.Contains(out.String(), "echo world") {
+		t.Fatalf("expected 'echo world' in stdout; got %q", out.String())
+	}
+}
+
+func TestActivateCommandDryRunUsesDefault(t *testing.T) {
+	tmp := t.TempDir()
+	writeActivateCommandFixture(t, tmp)
+	var out bytes.Buffer
+	exit := cli.RunActivate(cli.ActivateOpts{StoreRoot: tmp, DryRun: true, Stdout: &out},
+		[]string{"/echo-default"})
+	if exit != 0 {
+		t.Fatalf("exit=%d", exit)
+	}
+	if !strings.Contains(out.String(), "echo hello") {
+		t.Fatalf("expected 'echo hello' (from default); got %q", out.String())
+	}
+}
+
+func TestActivateCommandMissingRequiredConcern(t *testing.T) {
+	tmp := t.TempDir()
+	writeActivateCommandFixture(t, tmp)
+	var out, errBuf bytes.Buffer
+	exit := cli.RunActivate(cli.ActivateOpts{StoreRoot: tmp, DryRun: true, Stdout: &out, Stderr: &errBuf},
+		[]string{"/echo-it"})
+	if exit == 0 {
+		t.Fatal("missing required concern should error")
+	}
+	if !strings.Contains(errBuf.String(), "required") {
+		t.Fatalf("expected 'required' in stderr; got %q", errBuf.String())
+	}
+}
+
+func TestActivateCommandWithoutDryRunNotYetImplemented(t *testing.T) {
+	tmp := t.TempDir()
+	writeActivateCommandFixture(t, tmp)
+	var out, errBuf bytes.Buffer
+	exit := cli.RunActivate(cli.ActivateOpts{StoreRoot: tmp, Stdout: &out, Stderr: &errBuf},
+		[]string{"/echo-it", "msg=world"})
+	if exit == 0 {
+		t.Fatal("command without --dry-run should error in this task (exec lands in Task 7)")
+	}
+}
+
+func TestActivateCommandUnknownConcernIgnored(t *testing.T) {
+	tmp := t.TempDir()
+	writeActivateCommandFixture(t, tmp)
+	var out bytes.Buffer
+	exit := cli.RunActivate(cli.ActivateOpts{StoreRoot: tmp, DryRun: true, Stdout: &out},
+		[]string{"/echo-it", "msg=hi", "bogus=ignored"})
+	if exit != 0 {
+		t.Fatalf("exit=%d", exit)
+	}
+	if !strings.Contains(out.String(), "echo hi") {
+		t.Fatalf("expected 'echo hi'; got %q", out.String())
+	}
+}

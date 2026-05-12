@@ -59,9 +59,7 @@ func RunActivate(opts ActivateOpts, argv []string) int {
 	case model.KindInfo:
 		return activateInfo(entry, opts)
 	case model.KindCommand:
-		// Tasks 6 + 7 fill this in.
-		fmt.Fprintln(opts.Stderr, "dex activate: command kind not yet implemented")
-		return 2
+		return activateCommand(entry, argv[1:], opts)
 	default:
 		fmt.Fprintf(opts.Stderr, "dex activate: unknown entry kind %q\n", entry.Kind)
 		return 1
@@ -138,4 +136,61 @@ func activateInfo(entry model.Entry, opts ActivateOpts) int {
 	}
 	fmt.Fprintln(opts.Stdout, entry.Info.Content)
 	return 0
+}
+
+// activateCommand handles `dex activate <command-entry> [concern=value]...`.
+// In this task: parse concern args, validate required concerns are
+// resolved (via arg or default), substitute the template, and either
+// print (--dry-run) or error (exec lands in Task 7).
+func activateCommand(entry model.Entry, concernArgs []string, opts ActivateOpts) int {
+	if entry.Command == nil {
+		fmt.Fprintf(opts.Stderr, "dex activate: command entry %q has nil payload\n", entry.Slug)
+		return 1
+	}
+
+	// Parse k=v args into a map.
+	provided := map[string]string{}
+	for _, a := range concernArgs {
+		k, v, ok := strings.Cut(a, "=")
+		if !ok {
+			fmt.Fprintf(opts.Stderr, "dex activate: concern arg %q is not of form key=value\n", a)
+			return 2
+		}
+		provided[k] = v
+	}
+
+	// Resolve each declared concern: user-provided > default > error if required.
+	resolved := map[string]string{}
+	for _, c := range entry.Command.Concerns {
+		if v, ok := provided[c.LocalID]; ok {
+			resolved[c.LocalID] = v
+			continue
+		}
+		if c.Default != "" {
+			resolved[c.LocalID] = c.Default
+			continue
+		}
+		if c.Required {
+			fmt.Fprintf(opts.Stderr,
+				"dex activate: concern %q is required but not provided (and has no default)\n",
+				c.LocalID)
+			return 1
+		}
+		resolved[c.LocalID] = ""
+	}
+
+	// Substitute {local_id} placeholders.
+	assembled := entry.Command.Template
+	for k, v := range resolved {
+		assembled = strings.ReplaceAll(assembled, "{"+k+"}", v)
+	}
+
+	if opts.DryRun {
+		fmt.Fprintln(opts.Stdout, assembled)
+		return 0
+	}
+
+	// Real exec lands in Task 7.
+	fmt.Fprintln(opts.Stderr, "dex activate: command exec not yet implemented (use --dry-run)")
+	return 2
 }
