@@ -41,7 +41,11 @@ func usage() {
 	fmt.Fprintln(os.Stderr, `Usage: dex <verb> [args]
 
 Verbs:
-  ls [--json] [<uuid>]   List entries (merged root, or a specific rolodex)
+  ls [--json] [<uuid>|<path>]
+                         List entries. With no arg, the merged root.
+                         <uuid> looks up a rolodex directly.
+                         <path> starts with "/" (e.g. "/tools" or
+                         "/tools/hammer") and walks pointers.
   version                Print version
 
 Environment:
