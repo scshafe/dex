@@ -37,9 +37,45 @@ func Apply(r Resolver, st State, a Action) (State, Envelope, error) {
 		return applyPop(st)
 	case ActionActivate:
 		return applyActivate(r, st)
+	case ActionResolve:
+		return applyResolve(st, a)
 	}
 
 	return st, Envelope{}, fmt.Errorf("session: unknown action %q", a.Type)
+}
+
+func applyResolve(st State, a Action) (State, Envelope, error) {
+	if a.Concern == "" {
+		return st, failure(st, ErrInvalidTarget,
+			"resolve requires concern (local_id)", "", ""), nil
+	}
+	// The concern must currently be pending. This catches typos and
+	// stale calls after the concern was already resolved.
+	idx := -1
+	for i, p := range st.PendingConcerns {
+		if p.LocalID == a.Concern {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return st, failure(st, ErrInvalidTarget,
+			fmt.Sprintf("concern %q is not pending", a.Concern),
+			a.Concern, ""), nil
+	}
+
+	next := touch(st)
+	if next.Resolved == nil {
+		next.Resolved = map[string]string{}
+	}
+	next.Resolved[a.Concern] = a.Value
+	// Drop the satisfied concern from pending. Validator + strict
+	// enforcement is deferred; see pinned decisions in the plan.
+	next.PendingConcerns = append(
+		append([]PendingConcern{}, st.PendingConcerns[:idx]...),
+		st.PendingConcerns[idx+1:]...,
+	)
+	return next, success(next), nil
 }
 
 func applyActivate(r Resolver, st State) (State, Envelope, error) {

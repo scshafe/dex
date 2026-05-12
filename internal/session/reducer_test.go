@@ -484,6 +484,139 @@ func TestActivateCommandStagesPendingConcerns(t *testing.T) {
 	}
 }
 
+func TestResolveSetsValueAndShrinksPending(t *testing.T) {
+	st := newState(t)
+	st.PendingConcerns = []session.PendingConcern{
+		{LocalID: "ns", Required: true},
+		{LocalID: "tag"},
+	}
+	r := &fakeResolver{root: model.Rolodex{Slug: "merged-root"}}
+
+	st2, env, err := session.Apply(r, st, session.Action{
+		Type: session.ActionResolve, Concern: "ns", Value: "prod",
+	})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if !env.OK {
+		t.Fatalf("envelope: %+v", env)
+	}
+	if got := st2.Resolved["ns"]; got != "prod" {
+		t.Fatalf("resolved[ns]: got %q want prod", got)
+	}
+	if len(st2.PendingConcerns) != 1 || st2.PendingConcerns[0].LocalID != "tag" {
+		t.Fatalf("pending: got %+v want [tag]", st2.PendingConcerns)
+	}
+}
+
+func TestResolveUnknownConcernErrors(t *testing.T) {
+	st := newState(t)
+	st.PendingConcerns = []session.PendingConcern{{LocalID: "ns", Required: true}}
+	r := &fakeResolver{root: model.Rolodex{Slug: "merged-root"}}
+
+	_, env, err := session.Apply(r, st, session.Action{
+		Type: session.ActionResolve, Concern: "missing", Value: "x",
+	})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if env.OK {
+		t.Fatalf("expected ok=false")
+	}
+	if env.Error.Code != session.ErrInvalidTarget {
+		t.Fatalf("error.code: got %s want INVALID_TARGET", env.Error.Code)
+	}
+}
+
+func TestEndToEnd_DrillResolveActivate(t *testing.T) {
+	// commands rolodex: contains a deploy command with one required concern.
+	cmd := model.Entry{
+		NodeCore: model.NodeCore{ID: "01HB000000000000000000CMD", Slug: "deploy", Label: "Deploy"},
+		Kind:     model.KindCommand,
+		Command: &model.CommandPayload{
+			Template: "kubectl apply -n {ns} -f svc.yaml",
+			Concerns: []model.Concern{
+				{NodeCore: model.NodeCore{ID: "01HB00000000000000000000K1"}, LocalID: "ns", Required: true},
+			},
+		},
+	}
+	commands := model.Rolodex{
+		SchemaVersion: 1, ID: "01HB000000000000000000CMS", Slug: "commands",
+		Visibility: model.VisibilityBundled,
+		Entries:    []model.Entry{cmd},
+	}
+	root := model.Rolodex{
+		Slug: "merged-root",
+		Entries: []model.Entry{{
+			NodeCore: model.NodeCore{ID: "01HB000000000000000000RTE", Slug: "commands"},
+			Kind:     model.KindPointer,
+			Pointer:  &model.PointerPayload{To: commands.ID},
+		}},
+	}
+	r := &fakeResolver{
+		rolodexes: map[string]model.Rolodex{commands.ID: commands},
+		entries:   map[string]entryHit{cmd.ID: {entry: cmd, parent: commands}},
+		root:      root,
+	}
+
+	st := newState(t)
+
+	// 1. Drill into /commands.
+	st, env, err := session.Apply(r, st, session.Action{
+		Type: session.ActionDrill, Target: "/commands",
+	})
+	if err != nil || !env.OK {
+		t.Fatalf("drill /commands: err=%v env=%+v", err, env)
+	}
+
+	// 2. Drill into the deploy entry by uuid (path-based for entries
+	//    inside a rolodex isn't reachable from the merged root in this
+	//    fake; uuid drill is the equivalent step).
+	st, env, err = session.Apply(r, st, session.Action{
+		Type: session.ActionDrill, Target: cmd.ID,
+	})
+	// Drilling into a non-rolodex uuid currently errors (drillByUUID
+	// only knows rolodexes). For the integration test, set the cursor
+	// directly to simulate "the user is now on the deploy entry."
+	if env.OK {
+		t.Fatalf("drill into entry uuid should error in v1 (rolodex-only); got ok=true")
+	}
+	st.Cursor = session.Cursor{RolodexID: commands.ID, EntryID: cmd.ID, Mode: session.CursorModeEntry}
+
+	// 3. First activate: stages pending concern, errors UNRESOLVED_REQUIRED.
+	st, env, err = session.Apply(r, st, session.Action{Type: session.ActionActivate})
+	if err != nil {
+		t.Fatalf("activate (first): %v", err)
+	}
+	if env.OK {
+		t.Fatalf("first activate must stage pending and error")
+	}
+	if env.Error.Code != session.ErrUnresolvedRequired || env.Error.Concern != "ns" {
+		t.Fatalf("first activate error: %+v", env.Error)
+	}
+
+	// 4. Resolve ns=prod.
+	st, env, err = session.Apply(r, st, session.Action{
+		Type: session.ActionResolve, Concern: "ns", Value: "prod",
+	})
+	if err != nil || !env.OK {
+		t.Fatalf("resolve: err=%v env=%+v", err, env)
+	}
+
+	// 5. Second activate: emits spawn.
+	_, env, err = session.Apply(r, st, session.Action{Type: session.ActionActivate})
+	if err != nil || !env.OK {
+		t.Fatalf("activate (final): err=%v env=%+v", err, env)
+	}
+	if len(env.Effects) != 1 || env.Effects[0].Type != session.EffectSpawn {
+		t.Fatalf("effects: got %+v", env.Effects)
+	}
+	want := "kubectl apply -n prod -f svc.yaml"
+	if env.Effects[0].ShellCommand != want {
+		t.Fatalf("shell_command: got %q want %q", env.Effects[0].ShellCommand, want)
+	}
+}
+
 func TestActivateCommandAllOptionalNoDefaultsErrors(t *testing.T) {
 	// Optional concerns with no default are still surfaced as pending
 	// because their {local_id} would substitute to empty string,
