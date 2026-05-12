@@ -407,3 +407,41 @@ func TestActivatePointerDrillsIntoTarget(t *testing.T) {
 		t.Fatalf("effects: got %+v want none", env.Effects)
 	}
 }
+
+func TestActivateCommandAllConcernsSatisfiedEmitsSpawn(t *testing.T) {
+	parent := model.Rolodex{ID: "01HB00000000000000000000P1", Slug: "p"}
+	cmd := model.Entry{
+		NodeCore: model.NodeCore{ID: "01HB00000000000000000000C1", Slug: "deploy", Label: "Deploy"},
+		Kind:     model.KindCommand,
+		Command: &model.CommandPayload{
+			Template: "deploy --ns {ns} --tag {tag}",
+			Concerns: []model.Concern{
+				{NodeCore: model.NodeCore{ID: "01HB00000000000000000000K1"}, LocalID: "ns", Required: true},
+				{NodeCore: model.NodeCore{ID: "01HB00000000000000000000K2"}, LocalID: "tag", Default: "latest"},
+			},
+		},
+	}
+	r := &fakeResolver{
+		rolodexes: map[string]model.Rolodex{parent.ID: parent},
+		entries:   map[string]entryHit{cmd.ID: {entry: cmd, parent: parent}},
+		root:      model.Rolodex{Slug: "merged-root"},
+	}
+	st := newState(t)
+	st.Cursor = session.Cursor{RolodexID: parent.ID, EntryID: cmd.ID, Mode: session.CursorModeEntry}
+	st.Resolved = map[string]string{"ns": "prod"}
+
+	_, env, err := session.Apply(r, st, session.Action{Type: session.ActionActivate})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if !env.OK {
+		t.Fatalf("envelope: %+v", env)
+	}
+	if len(env.Effects) != 1 || env.Effects[0].Type != session.EffectSpawn {
+		t.Fatalf("effects: got %+v want one spawn", env.Effects)
+	}
+	want := "deploy --ns prod --tag latest"
+	if env.Effects[0].ShellCommand != want {
+		t.Fatalf("shell_command: got %q want %q", env.Effects[0].ShellCommand, want)
+	}
+}

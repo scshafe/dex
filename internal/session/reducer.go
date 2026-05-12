@@ -2,6 +2,7 @@ package session
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/scshafe/dex/internal/model"
@@ -63,9 +64,57 @@ func applyActivate(r Resolver, st State) (State, Envelope, error) {
 		return activateInfo(st, entry)
 	case model.KindPointer:
 		return activatePointer(r, st, entry)
+	case model.KindCommand:
+		return activateCommand(st, entry)
 	}
 	return st, failure(st, ErrInvalidTarget,
 		fmt.Sprintf("activate not implemented for kind %q", entry.Kind), "", ""), nil
+}
+
+func activateCommand(st State, entry model.Entry) (State, Envelope, error) {
+	if entry.Command == nil {
+		return st, failure(st, ErrSchemaError,
+			fmt.Sprintf("command entry %q has nil payload", entry.Slug), "", ""), nil
+	}
+
+	// Resolve each concern: state.Resolved > default > unresolved.
+	resolved := map[string]string{}
+	pending := []PendingConcern{}
+	for _, c := range entry.Command.Concerns {
+		if v, ok := st.Resolved[c.LocalID]; ok {
+			resolved[c.LocalID] = v
+			continue
+		}
+		if c.Default != "" {
+			resolved[c.LocalID] = c.Default
+			continue
+		}
+		// Unresolved. Surface as pending; the missing-concern arm
+		// (Task 8) decides whether to error or just stage.
+		pending = append(pending, PendingConcern{
+			LocalID:   c.LocalID,
+			Label:     c.Label,
+			Default:   c.Default,
+			Required:  c.Required,
+			Strict:    c.Strict,
+			Validator: c.Validator,
+			DependsOn: c.DependsOn,
+		})
+	}
+
+	if len(pending) > 0 {
+		// Filled in by Task 8. For now keep the test green by
+		// treating any pending as a hard error.
+		return st, failure(st, ErrUnresolvedRequired,
+			"command has unresolved concerns", "", ""), nil
+	}
+
+	assembled := entry.Command.Template
+	for k, v := range resolved {
+		assembled = strings.ReplaceAll(assembled, "{"+k+"}", v)
+	}
+	next := touch(st)
+	return next, success(next, Effect{Type: EffectSpawn, ShellCommand: assembled}), nil
 }
 
 func activatePointer(r Resolver, st State, entry model.Entry) (State, Envelope, error) {
