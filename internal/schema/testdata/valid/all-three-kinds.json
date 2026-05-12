@@ -21,7 +21,7 @@
         "template": "wm broker status --provider {provider}",
         "concerns": [
           {
-            "id": "01HQ7AB000000000000000CNR1",
+            "id": "01HQ7AB000000000000000CNC1",
             "local_id": "provider",
             "slug": "provider-concern",
             "label": "Which provider?",
