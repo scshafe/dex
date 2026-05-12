@@ -26,7 +26,9 @@ func (v Visibility) Validate() error {
 }
 
 // Precedence returns the collision-resolution order for merged-root assembly.
-// Higher wins. Ephemeral is not part of the merged root and returns 0.
+// Higher wins; private > personal > bundled encodes inverse trust order so
+// user customization shadows bundled defaults. Ephemeral is not part of
+// the merged root and returns 0.
 func (v Visibility) Precedence() int {
 	switch v {
 	case VisibilityBundled:
