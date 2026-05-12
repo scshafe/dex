@@ -445,3 +445,77 @@ func TestActivateCommandAllConcernsSatisfiedEmitsSpawn(t *testing.T) {
 		t.Fatalf("shell_command: got %q want %q", env.Effects[0].ShellCommand, want)
 	}
 }
+
+func TestActivateCommandStagesPendingConcerns(t *testing.T) {
+	parent := model.Rolodex{ID: "01HB00000000000000000000P1", Slug: "p"}
+	cmd := model.Entry{
+		NodeCore: model.NodeCore{ID: "01HB00000000000000000000C2", Slug: "deploy", Label: "Deploy"},
+		Kind:     model.KindCommand,
+		Command: &model.CommandPayload{
+			Template: "deploy --ns {ns}",
+			Concerns: []model.Concern{
+				{NodeCore: model.NodeCore{ID: "01HB00000000000000000000K1"}, LocalID: "ns", Required: true},
+			},
+		},
+	}
+	r := &fakeResolver{
+		rolodexes: map[string]model.Rolodex{parent.ID: parent},
+		entries:   map[string]entryHit{cmd.ID: {entry: cmd, parent: parent}},
+		root:      model.Rolodex{Slug: "merged-root"},
+	}
+	st := newState(t)
+	st.Cursor = session.Cursor{RolodexID: parent.ID, EntryID: cmd.ID, Mode: session.CursorModeEntry}
+
+	st2, env, err := session.Apply(r, st, session.Action{Type: session.ActionActivate})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if env.OK {
+		t.Fatalf("expected ok=false")
+	}
+	if env.Error.Code != session.ErrUnresolvedRequired {
+		t.Fatalf("error.code: got %s want UNRESOLVED_REQUIRED", env.Error.Code)
+	}
+	if env.Error.Concern != "ns" {
+		t.Fatalf("error.concern: got %q want ns", env.Error.Concern)
+	}
+	if len(st2.PendingConcerns) != 1 || st2.PendingConcerns[0].LocalID != "ns" {
+		t.Fatalf("state.pending_concerns: got %+v", st2.PendingConcerns)
+	}
+}
+
+func TestActivateCommandAllOptionalNoDefaultsErrors(t *testing.T) {
+	// Optional concerns with no default are still surfaced as pending
+	// because their {local_id} would substitute to empty string,
+	// which is rarely what the user wants. The architect treats this
+	// as a v1 hard error; relax later if needed.
+	parent := model.Rolodex{ID: "01HB00000000000000000000P1", Slug: "p"}
+	cmd := model.Entry{
+		NodeCore: model.NodeCore{ID: "01HB00000000000000000000C3", Slug: "x"},
+		Kind:     model.KindCommand,
+		Command: &model.CommandPayload{
+			Template: "x --tag {tag}",
+			Concerns: []model.Concern{
+				{NodeCore: model.NodeCore{ID: "01HB00000000000000000000K1"}, LocalID: "tag" /* not required, no default */},
+			},
+		},
+	}
+	r := &fakeResolver{
+		rolodexes: map[string]model.Rolodex{parent.ID: parent},
+		entries:   map[string]entryHit{cmd.ID: {entry: cmd, parent: parent}},
+		root:      model.Rolodex{Slug: "merged-root"},
+	}
+	st := newState(t)
+	st.Cursor = session.Cursor{RolodexID: parent.ID, EntryID: cmd.ID, Mode: session.CursorModeEntry}
+
+	_, env, err := session.Apply(r, st, session.Action{Type: session.ActionActivate})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if env.OK {
+		t.Fatalf("expected ok=false")
+	}
+	if env.Error.Code != session.ErrUnresolvedRequired {
+		t.Fatalf("error.code: got %s", env.Error.Code)
+	}
+}

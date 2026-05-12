@@ -103,10 +103,14 @@ func activateCommand(st State, entry model.Entry) (State, Envelope, error) {
 	}
 
 	if len(pending) > 0 {
-		// Filled in by Task 8. For now keep the test green by
-		// treating any pending as a hard error.
-		return st, failure(st, ErrUnresolvedRequired,
-			"command has unresolved concerns", "", ""), nil
+		next := touch(st)
+		next.PendingConcerns = pending
+		// error.concern points at the first pending so callers know
+		// where to start the resolve loop.
+		return next, failure(next, ErrUnresolvedRequired,
+			"command has unresolved concerns",
+			pending[0].LocalID,
+			"call resolve to fill in concern values"), nil
 	}
 
 	assembled := entry.Command.Template
