@@ -22,6 +22,8 @@ func main() {
 		os.Exit(runSearch(os.Args[2:]))
 	case "activate":
 		os.Exit(runActivate(os.Args[2:]))
+	case "add":
+		os.Exit(runAdd(os.Args[2:]))
 	case "version":
 		fmt.Println("dex 0.0.0-dev")
 	default:
@@ -81,6 +83,12 @@ func runActivate(args []string) int {
 	}, fs.Args())
 }
 
+func runAdd(args []string) int {
+	return cli.RunAdd(cli.AddOpts{
+		StoreRoot: os.Getenv("DEX_STORE"),
+	}, args)
+}
+
 func usage() {
 	fmt.Fprintln(os.Stderr, `Usage: dex <verb> [args]
 
@@ -99,6 +107,9 @@ Verbs:
   activate [--json] [--dry-run] <uuid|path> [concern=value]...
                          Run an entry. pointer drills; info prints
                          content; command assembles and execs.
+  add --parent <uuid> {--slug ... --label ... --kind ... <payload>}|{--from-json <path|->}
+                         Add an entry to a rolodex. Auto-generates the
+                         new entry's ULID and prints it to stdout.
   version                Print version
 
 Environment:
