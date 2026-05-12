@@ -116,7 +116,10 @@ func findFileForID(dir, id string) (string, error) {
 func acquireLock(path string) (*os.File, error) {
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
-		return nil, fmt.Errorf("acquire %s: %w", path, err)
+		// If the lockfile already exists, it likely points at a real
+		// concurrent writer — but could also be stale from a crashed
+		// process. Surface both possibilities.
+		return nil, fmt.Errorf("acquire %s: %w (if no other dex process is running, remove this file manually)", path, err)
 	}
 	return f, nil
 }
