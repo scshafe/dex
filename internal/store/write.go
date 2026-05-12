@@ -126,3 +126,21 @@ func releaseLock(f *os.File, path string) {
 	_ = f.Close()
 	_ = os.Remove(path)
 }
+
+// DeleteRolodexFile removes the on-disk file for the rolodex with the
+// given id in the given tier. No-op if no matching file is found.
+// Used by `dex promote` after writing the rolodex to its new tier.
+func (s *Store) DeleteRolodexFile(v model.Visibility, id string) error {
+	dir, ok := s.tiers[v]
+	if !ok {
+		return fmt.Errorf("store: unknown visibility %q", v)
+	}
+	path, err := findFileForID(dir, id)
+	if err != nil {
+		return err
+	}
+	if path == "" {
+		return nil
+	}
+	return os.Remove(path)
+}

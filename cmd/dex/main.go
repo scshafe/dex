@@ -28,6 +28,8 @@ func main() {
 		os.Exit(runEdit(os.Args[2:]))
 	case "rm":
 		os.Exit(runRm(os.Args[2:]))
+	case "promote":
+		os.Exit(runPromote(os.Args[2:]))
 	case "version":
 		fmt.Println("dex 0.0.0-dev")
 	default:
@@ -105,6 +107,12 @@ func runRm(args []string) int {
 	}, args)
 }
 
+func runPromote(args []string) int {
+	return cli.RunPromote(cli.PromoteOpts{
+		StoreRoot: os.Getenv("DEX_STORE"),
+	}, args)
+}
+
 func usage() {
 	fmt.Fprintln(os.Stderr, `Usage: dex <verb> [args]
 
@@ -132,6 +140,9 @@ Verbs:
   rm <entry-uuid>        Remove an entry from its parent rolodex.
                          Dangling pointers (if any) are surfaced by
                          dex doctor.
+  promote <rolodex-uuid> --to <bundled|personal|private|ephemeral>
+                         Move a rolodex to a different visibility tier.
+                         ULID is preserved so backlinks survive.
   version                Print version
 
 Environment:
