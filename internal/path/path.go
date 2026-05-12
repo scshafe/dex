@@ -43,11 +43,14 @@ var (
 	ErrSyntax = errors.New("path: invalid syntax")
 )
 
-// Resolve walks the path from mergedRoot, returning the final-segment
-// entry. Paths must start with "/". Trailing slashes are ignored.
-//
-// Task 1 supports only single-segment paths. Task 2 extends to
-// multi-segment with pointer traversal.
+// MaxDepth is the hard cap on resolution hops. Each segment counts as
+// one hop. A path that exceeds the cap returns ErrCycle — which catches
+// both genuine pointer cycles and pathologically deep chains.
+const MaxDepth = 32
+
+// Resolve walks the path from mergedRoot, following pointer entries
+// mid-path and returning the final-segment entry (any kind). Paths must
+// start with "/". Trailing slashes are ignored.
 func Resolve(r Resolver, mergedRoot model.Rolodex, p string) (Result, error) {
 	if !strings.HasPrefix(p, "/") {
 		return Result{}, fmt.Errorf("%w: must start with %q (got %q)", ErrSyntax, "/", p)
@@ -57,14 +60,48 @@ func Resolve(r Resolver, mergedRoot model.Rolodex, p string) (Result, error) {
 		return Result{}, fmt.Errorf("%w: empty path", ErrSyntax)
 	}
 	segments := strings.Split(trimmed, "/")
-	if len(segments) > 1 {
-		return Result{}, fmt.Errorf("%w: multi-segment paths not yet supported", ErrSyntax)
+	if len(segments) > MaxDepth {
+		return Result{}, fmt.Errorf("%w: %d segments exceeds cap of %d", ErrCycle, len(segments), MaxDepth)
 	}
-	seg := segments[0]
-	for _, e := range mergedRoot.Entries {
-		if e.Slug == seg {
-			return Result{Entry: e, ParentRolodex: mergedRoot}, nil
+
+	currentRolodex := mergedRoot
+	for i, seg := range segments {
+		var entry model.Entry
+		found := false
+		for _, e := range currentRolodex.Entries {
+			if e.Slug == seg {
+				entry = e
+				found = true
+				break
+			}
 		}
+		if !found {
+			return Result{}, fmt.Errorf("%w: %q in %s", ErrNotFound, seg, currentRolodex.Slug)
+		}
+
+		// Final segment: return regardless of kind.
+		if i == len(segments)-1 {
+			return Result{Entry: entry, ParentRolodex: currentRolodex}, nil
+		}
+
+		// Mid-path: must be a pointer to continue traversal.
+		if entry.Kind != model.KindPointer {
+			return Result{}, fmt.Errorf("%w: %q is %s", ErrTraversesNonPointer, seg, entry.Kind)
+		}
+		if entry.Pointer == nil {
+			return Result{}, fmt.Errorf("%w: pointer entry %q has nil payload", ErrTraversesNonPointer, seg)
+		}
+
+		next, ok, err := r.LookupByID(entry.Pointer.To)
+		if err != nil {
+			return Result{}, err
+		}
+		if !ok {
+			return Result{}, fmt.Errorf("%w: pointer target %q", ErrNotFound, entry.Pointer.To)
+		}
+		currentRolodex = next
 	}
-	return Result{}, fmt.Errorf("%w: %q in %s", ErrNotFound, seg, mergedRoot.Slug)
+
+	// Unreachable: the loop always returns or errors.
+	return Result{}, fmt.Errorf("%w: unreachable", ErrSyntax)
 }
