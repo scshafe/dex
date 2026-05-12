@@ -3,7 +3,6 @@ package session_test
 import (
 	"crypto/rand"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -66,7 +65,10 @@ func TestLoadRoundTripsState(t *testing.T) {
 
 func TestEndRemovesFile(t *testing.T) {
 	m := newManager(t)
-	s, _ := m.NewSession()
+	s, err := m.NewSession()
+	if err != nil {
+		t.Fatalf("new session: %v", err)
+	}
 	if err := m.End(s.ID); err != nil {
 		t.Fatalf("end: %v", err)
 	}
@@ -97,5 +99,4 @@ func TestNewSessionGCsExpiredFiles(t *testing.T) {
 	if len(files) != 1 {
 		t.Fatalf("expected 1 file (only the new one), got %d", len(files))
 	}
-	_ = filepath.Join // keep import
 }

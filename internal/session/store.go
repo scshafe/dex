@@ -32,14 +32,9 @@ func (m *Manager) Dir() string { return m.dir }
 // it. Runs opportunistic GC on the session dir first (pinned
 // decision #2).
 func (m *Manager) NewSession() (State, error) {
-	if err := m.gc(); err != nil {
-		// GC failures are not fatal — log via the returned error
-		// chain but still proceed with session creation. The caller
-		// gets to decide whether to surface this.
-		// In v1 we just attach via fmt.Errorf, no logging package.
-		// (Currently we silently swallow; revisit when telemetry lands.)
-		_ = err
-	}
+	// GC is opportunistic; failures are non-fatal and silent in v1
+	// (revisit once telemetry lands).
+	_ = m.gc()
 
 	id, err := m.newID()
 	if err != nil {
