@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "id": "01HQ7AB000000000000000R001",
+  "slug": "root",
+  "label": "Bundled root",
+  "visibility": "bundled",
+  "entries": [
+    {
+      "id": "01HQ7AB000000000000000ENT1",
+      "slug": "tools",
+      "label": "Tools",
+      "kind": "pointer",
+      "pointer": { "to": "01HQ7AB000000000000000R002" }
+    }
+  ]
+}

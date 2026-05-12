@@ -56,3 +56,61 @@ func TestOpenMissingTierDir(t *testing.T) {
 		t.Fatalf("expected 4 tier dirs (auto-created), got %d", len(s.Tiers()))
 	}
 }
+
+func TestLoadTier(t *testing.T) {
+	s, err := store.Open("testdata/simple")
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	rolodexes, err := s.LoadTier(model.VisibilityBundled)
+	if err != nil {
+		t.Fatalf("load bundled: %v", err)
+	}
+	if len(rolodexes) != 1 {
+		t.Fatalf("rolodexes: got %d want 1", len(rolodexes))
+	}
+	r := rolodexes[0]
+	if r.Slug != "root" {
+		t.Fatalf("slug: got %q want root", r.Slug)
+	}
+	if r.Visibility != model.VisibilityBundled {
+		t.Fatalf("visibility: got %q want bundled", r.Visibility)
+	}
+	if len(r.Entries) != 1 {
+		t.Fatalf("entries: got %d want 1", len(r.Entries))
+	}
+}
+
+func TestLoadTierEmpty(t *testing.T) {
+	tmp := t.TempDir()
+	s, err := store.Open(tmp)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	rolodexes, err := s.LoadTier(model.VisibilityBundled)
+	if err != nil {
+		t.Fatalf("load empty: %v", err)
+	}
+	if len(rolodexes) != 0 {
+		t.Fatalf("expected 0 rolodexes, got %d", len(rolodexes))
+	}
+}
+
+func TestLoadTierRejectsInvalid(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(tmp, "bundled"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	bad := `{"schema_version":1,"slug":"missing-id","label":"x","visibility":"bundled","entries":[]}`
+	if err := os.WriteFile(filepath.Join(tmp, "bundled", "bad.json"), []byte(bad), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s, err := store.Open(tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = s.LoadTier(model.VisibilityBundled)
+	if err == nil {
+		t.Fatal("expected schema-validation error on missing id")
+	}
+}

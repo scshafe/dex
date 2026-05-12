@@ -13,11 +13,13 @@
 package store
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/scshafe/dex/internal/model"
+	"github.com/scshafe/dex/internal/schema"
 )
 
 type Store struct {
@@ -58,4 +60,63 @@ func (s *Store) Tiers() map[model.Visibility]string {
 		out[k] = v
 	}
 	return out
+}
+
+// LoadTier reads every `*.json` file under the given visibility's tier
+// directory, validates each against the embedded schema, and returns the
+// parsed Rolodexes. Files with extension other than `.json` are skipped.
+// Validation errors are returned as a single wrapped error containing the
+// offending file's path.
+func (s *Store) LoadTier(v model.Visibility) ([]model.Rolodex, error) {
+	dir, ok := s.tiers[v]
+	if !ok {
+		return nil, fmt.Errorf("store: unknown visibility %q", v)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, fmt.Errorf("store: read tier %s: %w", v, err)
+	}
+
+	var out []model.Rolodex
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		if filepath.Ext(e.Name()) != ".json" {
+			continue
+		}
+		path := filepath.Join(dir, e.Name())
+		r, err := s.readRolodex(path)
+		if err != nil {
+			return nil, fmt.Errorf("store: %s: %w", path, err)
+		}
+		if r.Visibility != v {
+			return nil, fmt.Errorf("store: %s: visibility %q does not match tier dir %q",
+				path, r.Visibility, v)
+		}
+		out = append(out, r)
+	}
+	return out, nil
+}
+
+func (s *Store) readRolodex(path string) (model.Rolodex, error) {
+	var zero model.Rolodex
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return zero, err
+	}
+	// Validate against schema first (preserves rich error from the validator),
+	// then unmarshal into the typed struct.
+	var parsed any
+	if err := json.Unmarshal(b, &parsed); err != nil {
+		return zero, fmt.Errorf("parse: %w", err)
+	}
+	if err := schema.Validate(parsed); err != nil {
+		return zero, fmt.Errorf("schema: %w", err)
+	}
+	var r model.Rolodex
+	if err := json.Unmarshal(b, &r); err != nil {
+		return zero, fmt.Errorf("decode: %w", err)
+	}
+	return r, nil
 }
