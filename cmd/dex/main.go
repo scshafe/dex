@@ -18,6 +18,8 @@ func main() {
 		os.Exit(runLs(os.Args[2:]))
 	case "explore":
 		os.Exit(runExplore(os.Args[2:]))
+	case "search":
+		os.Exit(runSearch(os.Args[2:]))
 	case "version":
 		fmt.Println("dex 0.0.0-dev")
 	default:
@@ -51,6 +53,18 @@ func runExplore(args []string) int {
 	}, fs.Args())
 }
 
+func runSearch(args []string) int {
+	fs := flag.NewFlagSet("search", flag.ContinueOnError)
+	jsonOut := fs.Bool("json", false, "emit JSON instead of human output")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	return cli.RunSearch(cli.SearchOpts{
+		StoreRoot: os.Getenv("DEX_STORE"),
+		JSON:      *jsonOut,
+	}, fs.Args())
+}
+
 func usage() {
 	fmt.Fprintln(os.Stderr, `Usage: dex <verb> [args]
 
@@ -63,6 +77,9 @@ Verbs:
   explore [--json] <uuid|path>
                          Print an entry's self-description (explore
                          block + concerns for command-kind).
+  search [--json] <query>
+                         Case-insensitive substring search across all
+                         entries (slug, label, context, explore desc).
   version                Print version
 
 Environment:
