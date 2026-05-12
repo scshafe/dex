@@ -10,8 +10,8 @@ import (
 )
 
 // fakeResolver is an in-memory Resolver for algorithm-level tests.
-// Tasks 2+ exercise pointer following through it; Task 1 only needs the
-// merged root to walk.
+// Multi-segment tests populate the rolodexes map; single-segment tests
+// leave it empty.
 type fakeResolver struct {
 	rolodexes map[string]model.Rolodex
 }

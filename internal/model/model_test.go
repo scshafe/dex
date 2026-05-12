@@ -21,7 +21,7 @@ const sampleRolodex = `{
         "template": "wm broker status --provider {provider}",
         "concerns": [
           {
-            "id": "01HQ7AB000000000000000CON1",
+            "id": "01HQ7AB000000000000000CNC1",
             "local_id": "provider",
             "slug": "provider-concern",
             "label": "Which provider?",
@@ -81,7 +81,7 @@ func TestRolodexRoundTrip(t *testing.T) {
 	if concern.LocalID != "provider" {
 		t.Fatalf("concern.local_id: got %q want provider", concern.LocalID)
 	}
-	if concern.ID != "01HQ7AB000000000000000CON1" {
+	if concern.ID != "01HQ7AB000000000000000CNC1" {
 		t.Fatalf("concern.id: got %q", concern.ID)
 	}
 	// NodeCore is embedded; promoted fields should be addressable directly.

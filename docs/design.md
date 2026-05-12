@@ -1,7 +1,7 @@
 # dex — Design
 
-Status: v2 design (post-architect review). Implementation has not
-started.
+Status: v2 design (post-architect review). P-11.2 stateless CLI
+shipped; session API (P-11.4) is next.
 
 ## Origin note
 

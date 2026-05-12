@@ -53,9 +53,9 @@ func init() {
 	compiled = s
 }
 
-// Validate checks that raw is a JSON object conforming to the rolodex
-// schema. It returns a *jsonschema.ValidationError on failure (which has
-// rich detail via .DetailedOutput()).
+// Validate checks that parsed (a pre-unmarshaled JSON value) conforms
+// to the rolodex schema. It returns a *jsonschema.ValidationError on
+// failure (which has rich detail via .DetailedOutput()).
 func Validate(parsed any) error {
 	if compiled == nil {
 		return fmt.Errorf("schema: not initialized")

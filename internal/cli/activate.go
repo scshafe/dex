@@ -27,7 +27,7 @@ type ActivateOpts struct {
 //   - pointer: drills (lists target rolodex's entries; same as `dex ls`)
 //   - info with content: prints content
 //   - info with provider: errors (v1 — providers deferred)
-//   - command: assembles template, validates concerns, execs (Tasks 6/7)
+//   - command: assembles template, validates concerns, execs
 func RunActivate(opts ActivateOpts, argv []string) int {
 	if opts.Stdout == nil {
 		opts.Stdout = os.Stdout
@@ -141,9 +141,10 @@ func activateInfo(entry model.Entry, opts ActivateOpts) int {
 }
 
 // activateCommand handles `dex activate <command-entry> [concern=value]...`.
-// In this task: parse concern args, validate required concerns are
-// resolved (via arg or default), substitute the template, and either
-// print (--dry-run) or error (exec lands in Task 7).
+// Parses concern args (k=v), resolves each declared concern in priority
+// order (user-provided > default > error if required), substitutes
+// {local_id} placeholders into the template, then either prints
+// (--dry-run) or execs via `sh -c`.
 func activateCommand(entry model.Entry, concernArgs []string, opts ActivateOpts) int {
 	if entry.Command == nil {
 		fmt.Fprintf(opts.Stderr, "dex activate: command entry %q has nil payload\n", entry.Slug)

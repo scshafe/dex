@@ -22,9 +22,10 @@ type LsOpts struct {
 	Stderr    io.Writer
 }
 
-// RunLs implements `dex ls [<uuid>]`. With no arg in argv, prints the
-// merged root. With a single ULID arg, prints that rolodex's entries.
-// Returns the process exit code.
+// RunLs implements `dex ls [<uuid|/path>]`. With no arg, prints the
+// merged root. With a single arg, either looks up a rolodex by ULID
+// or walks a "/"-prefixed path through pointer entries. Returns the
+// process exit code.
 func RunLs(opts LsOpts, argv []string) int {
 	if opts.Stdout == nil {
 		opts.Stdout = os.Stdout

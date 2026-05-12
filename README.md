@@ -4,8 +4,9 @@
 > workflows by traversing linked nodes. Self-documenting,
 > agent-usable, with an input-capturing modal frontend.
 
-**Status: design phase.** No implementation yet. The full
-specification lives at [`docs/design.md`](docs/design.md).
+**Status:** P-11.2 stateless CLI shipped — `ls`, `explore`, `search`,
+`activate` all work end-to-end. Session API and macOS modal not yet
+started. The full specification lives at [`docs/design.md`](docs/design.md).
 
 ## What is this?
 
@@ -52,12 +53,22 @@ Three needs that nothing else on macOS combines:
 
 ```
 dex/
-├── README.md            ← you are here
+├── README.md                ← you are here
+├── cmd/dex/                 ← CLI entry point (verb dispatch)
+├── internal/
+│   ├── cli/                 ← Run<Verb> functions for ls/explore/search/activate
+│   ├── model/               ← Rolodex/Entry/Concern data types
+│   ├── path/                ← path → entry resolution algorithm
+│   ├── schema/              ← embedded JSON Schemas + Validate()
+│   └── store/               ← disk IO; tier discovery; lookups
 ├── docs/
-│   ├── design.md        ← full specification (v2)
-│   └── initial-sketch/  ← pre-design-review JSON scaffolding,
-│                          retained for reference
-└── (implementation lands later)
+│   ├── design.md            ← full specification (v2)
+│   ├── schema/              ← canonical JSON Schemas
+│   ├── handoffs/            ← session handoff notes
+│   ├── superpowers/plans/   ← implementation plans (shipped + future)
+│   └── initial-sketch/      ← pre-design-review JSON, retained for reference
+├── go.mod
+└── go.sum
 ```
 
 ## License
