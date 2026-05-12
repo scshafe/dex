@@ -221,3 +221,46 @@ func TestLookupEntryByIDMissing(t *testing.T) {
 		t.Fatal("expected not-found")
 	}
 }
+
+func TestLoadAll(t *testing.T) {
+	s, err := store.Open("testdata/merge-precedence")
+	if err != nil {
+		t.Fatal(err)
+	}
+	all, err := s.LoadAll()
+	if err != nil {
+		t.Fatalf("loadall: %v", err)
+	}
+	// merge-precedence fixture has 1 bundled root + 1 personal root = 2.
+	if len(all) != 2 {
+		t.Fatalf("got %d rolodexes, want 2", len(all))
+	}
+	// Check both tiers are represented.
+	var sawBundled, sawPersonal bool
+	for _, r := range all {
+		switch r.Visibility {
+		case model.VisibilityBundled:
+			sawBundled = true
+		case model.VisibilityPersonal:
+			sawPersonal = true
+		}
+	}
+	if !sawBundled || !sawPersonal {
+		t.Fatalf("expected both bundled and personal; sawBundled=%v sawPersonal=%v", sawBundled, sawPersonal)
+	}
+}
+
+func TestLoadAllEmpty(t *testing.T) {
+	tmp := t.TempDir()
+	s, err := store.Open(tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	all, err := s.LoadAll()
+	if err != nil {
+		t.Fatalf("loadall: %v", err)
+	}
+	if len(all) != 0 {
+		t.Fatalf("got %d, want 0", len(all))
+	}
+}

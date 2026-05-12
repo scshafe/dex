@@ -222,3 +222,24 @@ func (s *Store) LookupEntryByID(id string) (model.Entry, model.Rolodex, bool, er
 	}
 	return model.Entry{}, model.Rolodex{}, false, nil
 }
+
+// LoadAll returns every rolodex across every tier (including ephemeral).
+// Order: bundled, personal, private, ephemeral. Within a tier, file-order
+// from LoadTier. Used by dex search and any other verb that needs full
+// graph coverage.
+func (s *Store) LoadAll() ([]model.Rolodex, error) {
+	var out []model.Rolodex
+	for _, v := range []model.Visibility{
+		model.VisibilityBundled,
+		model.VisibilityPersonal,
+		model.VisibilityPrivate,
+		model.VisibilityEphemeral,
+	} {
+		rs, err := s.LoadTier(v)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, rs...)
+	}
+	return out, nil
+}
