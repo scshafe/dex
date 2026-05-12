@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://dex.local/schema/rolodex.json",
+  "$id": "https://dex.local/schema/rolodex.schema.json",
   "title": "Rolodex",
   "type": "object",
   "properties": {
@@ -12,7 +12,7 @@
     "visibility":     { "enum": ["bundled", "personal", "private", "ephemeral"] },
     "entries":        {
       "type": "array",
-      "items": { "$ref": "entry.schema.json" }
+      "items": { "$ref": "entry.schema.json#" }
     }
   },
   "required": ["schema_version", "id", "slug", "label", "visibility", "entries"],

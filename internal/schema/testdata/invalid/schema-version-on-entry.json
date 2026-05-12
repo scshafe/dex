@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "01HQ7AB000000000000000ABCD",
+  "slug": "versioned-entry",
+  "label": "schema_version leaked onto entry",
+  "visibility": "bundled",
+  "entries": [
+    {
+      "schema_version": 1,
+      "id": "01HQ7AB000000000000000ENT1",
+      "slug": "naked",
+      "label": "Naked",
+      "kind": "info",
+      "info": { "content": "hi" }
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "id": "01HQ7AB000000000000000ABCE",
+  "slug": "kinds-demo",
+  "label": "All three entry kinds",
+  "visibility": "bundled",
+  "entries": [
+    {
+      "id": "01HQ7AB000000000000000ENT1",
+      "slug": "open-tools",
+      "label": "Tools",
+      "kind": "pointer",
+      "pointer": { "to": "01HQ7AB000000000000000XYZ2" }
+    },
+    {
+      "id": "01HQ7AB000000000000000ENT2",
+      "slug": "broker-status",
+      "label": "Broker status",
+      "kind": "command",
+      "command": {
+        "template": "wm broker status --provider {provider}",
+        "concerns": [
+          {
+            "id": "01HQ7AB000000000000000CNR1",
+            "local_id": "provider",
+            "slug": "provider-concern",
+            "label": "Which provider?",
+            "rolodex": { "to": "01HQ7AB000000000000000XYZ1" },
+            "required": false,
+            "strict": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "01HQ7AB000000000000000ENT3",
+      "slug": "readme",
+      "label": "Readme",
+      "kind": "info",
+      "info": { "content": "Hello." }
+    }
+  ]
+}

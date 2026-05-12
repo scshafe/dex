@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://dex.local/schema/entry.json",
+  "$id": "https://dex.local/schema/entry.schema.json",
   "title": "Entry",
   "type": "object",
   "properties": {
@@ -22,7 +22,7 @@
         "template": { "type": "string", "minLength": 1 },
         "concerns": {
           "type": "array",
-          "items": { "$ref": "concern.schema.json" }
+          "items": { "$ref": "concern.schema.json#" }
         }
       },
       "required": ["template"],

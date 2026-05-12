@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "id": "01HQ7AB000000000000000ABCD",
+  "slug": "missing-payload",
+  "label": "Command kind without command payload",
+  "visibility": "bundled",
+  "entries": [
+    {
+      "id": "01HQ7AB000000000000000ENT1",
+      "slug": "naked",
+      "label": "Naked command",
+      "kind": "command"
+    }
+  ]
+}

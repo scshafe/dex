@@ -14,7 +14,7 @@ import (
 //go:embed schemas/*.json
 var schemaFS embed.FS
 
-const rolodexSchemaID = "https://dex.local/schema/rolodex.json"
+const rolodexSchemaID = "https://dex.local/schema/rolodex.schema.json"
 
 var compiled *jsonschema.Schema
 

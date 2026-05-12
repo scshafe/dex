@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "id": "01HQ7AB000000000000000ABCD",
+  "slug": "BadSlug",
+  "label": "Uppercase slug",
+  "visibility": "bundled",
+  "entries": []
+}

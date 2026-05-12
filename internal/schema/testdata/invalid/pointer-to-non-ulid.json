@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "id": "01HQ7AB000000000000000ABCD",
+  "slug": "bad-pointer",
+  "label": "Pointer to path string",
+  "visibility": "bundled",
+  "entries": [
+    {
+      "id": "01HQ7AB000000000000000ENT1",
+      "slug": "elsewhere",
+      "label": "Elsewhere",
+      "kind": "pointer",
+      "pointer": { "to": "/commands/broker" }
+    }
+  ]
+}
