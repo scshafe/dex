@@ -174,3 +174,26 @@ func (s *Store) MergedRoot() (model.Rolodex, error) {
 	})
 	return out, nil
 }
+
+// LookupByID scans every tier (including ephemeral) and returns the
+// rolodex with the given ID. The second return is false when not found.
+// Errors are reserved for IO/schema failures.
+func (s *Store) LookupByID(id string) (model.Rolodex, bool, error) {
+	for _, v := range []model.Visibility{
+		model.VisibilityBundled,
+		model.VisibilityPersonal,
+		model.VisibilityPrivate,
+		model.VisibilityEphemeral,
+	} {
+		rolodexes, err := s.LoadTier(v)
+		if err != nil {
+			return model.Rolodex{}, false, err
+		}
+		for _, r := range rolodexes {
+			if r.ID == id {
+				return r, true, nil
+			}
+		}
+	}
+	return model.Rolodex{}, false, nil
+}

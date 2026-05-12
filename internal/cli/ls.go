@@ -51,9 +51,16 @@ func RunLs(opts LsOpts, argv []string) int {
 		}
 		entries = root.Entries
 	case 1:
-		// uuid lookup; wired in Task 11.
-		fmt.Fprintln(opts.Stderr, "dex ls: <uuid> lookup not yet implemented")
-		return 2
+		r, ok, err := s.LookupByID(argv[0])
+		if err != nil {
+			fmt.Fprintf(opts.Stderr, "dex ls: %v\n", err)
+			return 1
+		}
+		if !ok {
+			fmt.Fprintf(opts.Stderr, "dex ls: rolodex %q not found\n", argv[0])
+			return 1
+		}
+		entries = r.Entries
 	default:
 		fmt.Fprintln(opts.Stderr, "dex ls: too many arguments")
 		return 2

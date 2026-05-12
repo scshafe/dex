@@ -155,3 +155,34 @@ func TestMergedRootPrecedence(t *testing.T) {
 		t.Fatalf("expected personal version to win; got label %q", tools.Label)
 	}
 }
+
+func TestLookupByID(t *testing.T) {
+	s, err := store.Open("testdata/simple")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, ok, err := s.LookupByID("01HQ7AB000000000000000R001")
+	if err != nil {
+		t.Fatalf("lookup: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected to find the bundled root")
+	}
+	if r.Slug != "root" {
+		t.Fatalf("slug: got %q", r.Slug)
+	}
+}
+
+func TestLookupByIDMissing(t *testing.T) {
+	s, err := store.Open("testdata/simple")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, ok, err := s.LookupByID("01HQ7AB000000000000000ZZZZ")
+	if err != nil {
+		t.Fatalf("lookup: %v", err)
+	}
+	if ok {
+		t.Fatal("expected not-found")
+	}
+}

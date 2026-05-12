@@ -94,3 +94,37 @@ func TestLsHumanReadable(t *testing.T) {
 		t.Fatalf("expected human output to mention 'tools', got: %s", out.String())
 	}
 }
+
+func TestLsByID(t *testing.T) {
+	tmp := t.TempDir()
+	writeFixture(t, tmp)
+	var out bytes.Buffer
+	exit := cli.RunLs(cli.LsOpts{StoreRoot: tmp, JSON: true, Stdout: &out},
+		[]string{"01HB00000000000000000000R1"})
+	if exit != 0 {
+		t.Fatalf("exit=%d", exit)
+	}
+	var got []struct {
+		Slug string `json:"slug"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v\nraw: %s", err, out.String())
+	}
+	if len(got) != 1 || got[0].Slug != "tools" {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestLsByIDNotFound(t *testing.T) {
+	tmp := t.TempDir()
+	writeFixture(t, tmp)
+	var out, errBuf bytes.Buffer
+	exit := cli.RunLs(cli.LsOpts{StoreRoot: tmp, Stdout: &out, Stderr: &errBuf},
+		[]string{"01HZ00000000000000000000ZZ"})
+	if exit == 0 {
+		t.Fatal("expected non-zero exit for not-found")
+	}
+	if !strings.Contains(errBuf.String(), "not found") {
+		t.Fatalf("expected 'not found' in stderr; got %q", errBuf.String())
+	}
+}
