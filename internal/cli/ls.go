@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/scshafe/dex/internal/model"
+	"github.com/scshafe/dex/internal/path"
 	"github.com/scshafe/dex/internal/store"
 )
 
@@ -51,16 +53,25 @@ func RunLs(opts LsOpts, argv []string) int {
 		}
 		entries = root.Entries
 	case 1:
-		r, ok, err := s.LookupByID(argv[0])
-		if err != nil {
-			fmt.Fprintf(opts.Stderr, "dex ls: %v\n", err)
-			return 1
+		arg := argv[0]
+		if strings.HasPrefix(arg, "/") {
+			var err error
+			entries, err = resolvePath(s, arg, opts.Stderr)
+			if err != nil {
+				return 1
+			}
+		} else {
+			r, ok, err := s.LookupByID(arg)
+			if err != nil {
+				fmt.Fprintf(opts.Stderr, "dex ls: %v\n", err)
+				return 1
+			}
+			if !ok {
+				fmt.Fprintf(opts.Stderr, "dex ls: rolodex %q not found\n", arg)
+				return 1
+			}
+			entries = r.Entries
 		}
-		if !ok {
-			fmt.Fprintf(opts.Stderr, "dex ls: rolodex %q not found\n", argv[0])
-			return 1
-		}
-		entries = r.Entries
 	default:
 		fmt.Fprintln(opts.Stderr, "dex ls: too many arguments")
 		return 2
@@ -70,6 +81,47 @@ func RunLs(opts LsOpts, argv []string) int {
 		return emitJSON(opts.Stdout, opts.Stderr, entries)
 	}
 	return emitHuman(opts.Stdout, entries)
+}
+
+// resolvePath handles the path arm of `dex ls`. Special-cases "/" as
+// "list merged root"; otherwise walks the path via internal/path and
+// drills if the final entry is a pointer.
+func resolvePath(s *store.Store, p string, stderr io.Writer) ([]model.Entry, error) {
+	root, err := s.MergedRoot()
+	if err != nil {
+		fmt.Fprintf(stderr, "dex ls: %v\n", err)
+		return nil, err
+	}
+	if p == "/" {
+		return root.Entries, nil
+	}
+
+	result, err := path.Resolve(s, root, p)
+	if err != nil {
+		fmt.Fprintf(stderr, "dex ls: %v\n", err)
+		return nil, err
+	}
+	if result.Entry.Kind != model.KindPointer {
+		fmt.Fprintf(stderr,
+			"dex ls: %q is a %s entry; use `dex explore` or `dex activate` instead\n",
+			p, result.Entry.Kind)
+		return nil, fmt.Errorf("not a pointer")
+	}
+	if result.Entry.Pointer == nil {
+		fmt.Fprintf(stderr, "dex ls: pointer entry %q has nil payload\n", p)
+		return nil, fmt.Errorf("nil pointer payload")
+	}
+	target, ok, err := s.LookupByID(result.Entry.Pointer.To)
+	if err != nil {
+		fmt.Fprintf(stderr, "dex ls: %v\n", err)
+		return nil, err
+	}
+	if !ok {
+		fmt.Fprintf(stderr, "dex ls: dangling pointer at %q (target %q)\n",
+			p, result.Entry.Pointer.To)
+		return nil, fmt.Errorf("dangling pointer")
+	}
+	return target.Entries, nil
 }
 
 func emitJSON(stdout, stderr io.Writer, entries []model.Entry) int {

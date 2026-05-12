@@ -128,3 +128,114 @@ func TestLsByIDNotFound(t *testing.T) {
 		t.Fatalf("expected 'not found' in stderr; got %q", errBuf.String())
 	}
 }
+
+func TestLsByPathRoot(t *testing.T) {
+	tmp := t.TempDir()
+	writeFixture(t, tmp) // bundled root with /tools (pointer to T1)
+	// Add the target rolodex so the pointer resolves.
+	target := `{
+		"schema_version": 1,
+		"id": "01HB00000000000000000000T1",
+		"slug": "tools-collection",
+		"label": "Tools collection",
+		"visibility": "bundled",
+		"entries": [
+			{
+				"id": "01HB00000000000000000000C1",
+				"slug": "hammer",
+				"label": "Hammer",
+				"kind": "info",
+				"info": { "content": "the hammer" }
+			}
+		]
+	}`
+	if err := os.WriteFile(filepath.Join(tmp, "bundled", "tools.json"), []byte(target), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var out bytes.Buffer
+	exit := cli.RunLs(cli.LsOpts{StoreRoot: tmp, JSON: true, Stdout: &out},
+		[]string{"/tools"})
+	if exit != 0 {
+		t.Fatalf("exit=%d out=%s", exit, out.String())
+	}
+	var got []struct {
+		Slug string `json:"slug"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(got) != 1 || got[0].Slug != "hammer" {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestLsByPathSlashListsRoot(t *testing.T) {
+	tmp := t.TempDir()
+	writeFixture(t, tmp)
+	var out bytes.Buffer
+	exit := cli.RunLs(cli.LsOpts{StoreRoot: tmp, JSON: true, Stdout: &out},
+		[]string{"/"})
+	if exit != 0 {
+		t.Fatalf("exit=%d", exit)
+	}
+	var got []struct {
+		Slug string `json:"slug"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(got) != 1 || got[0].Slug != "tools" {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestLsByPathNonPointerErrors(t *testing.T) {
+	tmp := t.TempDir()
+	// Bundled root with /readme (info, not pointer).
+	for _, d := range []string{"bundled", "personal", "private", "ephemeral"} {
+		_ = os.MkdirAll(filepath.Join(tmp, d), 0o755)
+	}
+	rolodex := `{
+		"schema_version": 1,
+		"id": "01HB00000000000000000000R1",
+		"slug": "root",
+		"label": "Bundled root",
+		"visibility": "bundled",
+		"entries": [
+			{
+				"id": "01HB00000000000000000000E1",
+				"slug": "readme",
+				"label": "Readme",
+				"kind": "info",
+				"info": { "content": "hi" }
+			}
+		]
+	}`
+	if err := os.WriteFile(filepath.Join(tmp, "bundled", "root.json"), []byte(rolodex), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var out, errBuf bytes.Buffer
+	exit := cli.RunLs(cli.LsOpts{StoreRoot: tmp, Stdout: &out, Stderr: &errBuf},
+		[]string{"/readme"})
+	if exit == 0 {
+		t.Fatalf("expected non-zero exit for ls on info entry")
+	}
+	if !strings.Contains(errBuf.String(), "explore") {
+		t.Fatalf("expected stderr to suggest 'explore', got %q", errBuf.String())
+	}
+}
+
+func TestLsByPathNotFound(t *testing.T) {
+	tmp := t.TempDir()
+	writeFixture(t, tmp)
+	var out, errBuf bytes.Buffer
+	exit := cli.RunLs(cli.LsOpts{StoreRoot: tmp, Stdout: &out, Stderr: &errBuf},
+		[]string{"/does-not-exist"})
+	if exit == 0 {
+		t.Fatalf("expected non-zero exit for unknown path")
+	}
+	if !strings.Contains(errBuf.String(), "not found") {
+		t.Fatalf("expected 'not found' in stderr, got %q", errBuf.String())
+	}
+}
