@@ -81,6 +81,10 @@ type EffectType string
 const (
 	EffectSpawn        EffectType = "spawn"
 	EffectStdout       EffectType = "stdout"
+	// EffectCloseSession is reserved for a future "explicit close
+	// from inside a step" signal. v1 close goes through Manager.End
+	// (no reducer-emitted close effect); the constant is declared
+	// now so the wire shape stays stable.
 	EffectCloseSession EffectType = "close_session"
 )
 

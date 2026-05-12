@@ -4,9 +4,10 @@
 // A session is a stateful navigation context: cursor (where you are),
 // resolved (concern values you've supplied), pending_concerns (what's
 // still needed before the current command can run). The reducer is a
-// pure function — Apply(state, action, resolver) → (state', envelope,
-// effects) — and the session file (~/.cache/dex/sessions/ses_*.json)
-// is just a serialized State.
+// pure function — Apply(resolver, state, action) → (state', envelope,
+// error). Effects (spawn, stdout) ride on Envelope.Effects; the
+// session file (~/.cache/dex/sessions/ses_*.json) is just a
+// serialized State.
 //
 // Pinned v1 decisions (see docs/superpowers/plans/2026-05-12-session-state-and-reducer.md):
 //

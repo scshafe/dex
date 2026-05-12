@@ -30,6 +30,23 @@ func Apply(r Resolver, st State, a Action) (State, Envelope, error) {
 		return st, Envelope{}, fmt.Errorf("session: nil resolver")
 	}
 
+	// Stale-session detection (pinned decision #4): if the cursor
+	// points at a specific entry that no longer exists, refuse to
+	// advance. Done once at dispatch so every action observes the
+	// same liveness contract.
+	//
+	// Drill is exempt — it is the action used to move away from a
+	// stale cursor in the first place.
+	if a.Type != ActionDrill && st.Cursor.EntryID != "" {
+		if _, _, ok, err := r.LookupEntryByID(st.Cursor.EntryID); err != nil {
+			return st, Envelope{}, fmt.Errorf("session: lookup entry: %w", err)
+		} else if !ok {
+			return st, failure(st, ErrStaleSession,
+				fmt.Sprintf("entry %q no longer exists", st.Cursor.EntryID),
+				"", "start a new session"), nil
+		}
+	}
+
 	switch a.Type {
 	case ActionDrill:
 		return applyDrill(r, st, a)
@@ -88,8 +105,9 @@ func applyActivate(r Resolver, st State) (State, Envelope, error) {
 		return st, Envelope{}, fmt.Errorf("session: lookup entry: %w", err)
 	}
 	if !ok {
-		// Stale cursor — the entry was removed by an out-of-band
-		// mutation (per pinned decision #4 in the plan).
+		// Backstop: Apply already does a pre-dispatch stale check,
+		// but the entry could be removed between that lookup and
+		// this one. Treat as STALE_SESSION either way.
 		return st, failure(st, ErrStaleSession,
 			fmt.Sprintf("entry %q no longer exists", st.Cursor.EntryID),
 			"", "start a new session"), nil

@@ -617,6 +617,64 @@ func TestEndToEnd_DrillResolveActivate(t *testing.T) {
 	}
 }
 
+func TestStaleSessionCaughtAtDispatchForPop(t *testing.T) {
+	// The cursor points at an entry the resolver no longer knows about.
+	// Even a non-activate action (pop) should refuse to advance.
+	r := &fakeResolver{
+		rolodexes: map[string]model.Rolodex{},
+		entries:   map[string]entryHit{}, // cursor.entry_id is unknown
+		root:      model.Rolodex{Slug: "merged-root"},
+	}
+	st := newState(t)
+	st.Cursor = session.Cursor{
+		RolodexID: "01HB00000000000000000000P1",
+		EntryID:   "01HB00000000000000000000XX", // not in resolver.entries
+		Mode:      session.CursorModeEntry,
+	}
+
+	st2, env, err := session.Apply(r, st, session.Action{Type: session.ActionPop})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if env.OK {
+		t.Fatalf("expected ok=false on pop with stale cursor")
+	}
+	if env.Error.Code != session.ErrStaleSession {
+		t.Fatalf("error.code: got %s want STALE_SESSION", env.Error.Code)
+	}
+	if st2.Version != st.Version {
+		t.Fatalf("version: got %d want %d (no advance on stale)", st2.Version, st.Version)
+	}
+}
+
+func TestStaleSessionCaughtAtDispatchForResolve(t *testing.T) {
+	r := &fakeResolver{
+		rolodexes: map[string]model.Rolodex{},
+		entries:   map[string]entryHit{},
+		root:      model.Rolodex{Slug: "merged-root"},
+	}
+	st := newState(t)
+	st.Cursor = session.Cursor{
+		RolodexID: "01HB00000000000000000000P1",
+		EntryID:   "01HB00000000000000000000XX",
+		Mode:      session.CursorModeEntry,
+	}
+	st.PendingConcerns = []session.PendingConcern{{LocalID: "ns", Required: true}}
+
+	_, env, err := session.Apply(r, st, session.Action{
+		Type: session.ActionResolve, Concern: "ns", Value: "prod",
+	})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if env.OK {
+		t.Fatalf("expected ok=false on resolve with stale cursor")
+	}
+	if env.Error.Code != session.ErrStaleSession {
+		t.Fatalf("error.code: got %s want STALE_SESSION", env.Error.Code)
+	}
+}
+
 func TestActivateCommandAllOptionalNoDefaultsErrors(t *testing.T) {
 	// Optional concerns with no default are still surfaced as pending
 	// because their {local_id} would substitute to empty string,
