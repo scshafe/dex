@@ -65,6 +65,76 @@ func (o *SessionOpts) openStore() (*store.Store, error) {
 	return store.Open(o.StoreRoot)
 }
 
+// RunSessionStep implements `dex session step <id>`. Reads one JSON
+// action from stdin, applies it via session.Apply, persists the new
+// state, and writes the envelope JSON to stdout.
+//
+// Exit codes:
+//
+//	0 — success, or a validation failure encoded as ok=false in the
+//	    envelope.
+//	1 — protocol/runtime error: missing/unparseable input, missing
+//	    session file, Apply returned a Go error (unknown action,
+//	    lookup IO failure), or save failed.
+//	2 — usage error (missing session id).
+func RunSessionStep(opts SessionOpts, args []string) int {
+	if err := opts.normalize(); err != nil {
+		fmt.Fprintf(opts.Stderr, "dex session step: %v\n", err)
+		return 1
+	}
+	if len(args) < 1 {
+		fmt.Fprintln(opts.Stderr, "dex session step: requires a session id argument")
+		return 2
+	}
+	id := args[0]
+
+	mgr := opts.manager()
+	st, err := mgr.Load(id)
+	if err != nil {
+		fmt.Fprintf(opts.Stderr, "dex session step: %v\n", err)
+		return 1
+	}
+
+	body, err := io.ReadAll(opts.Stdin)
+	if err != nil {
+		fmt.Fprintf(opts.Stderr, "dex session step: read stdin: %v\n", err)
+		return 1
+	}
+	if len(body) == 0 {
+		fmt.Fprintln(opts.Stderr, "dex session step: empty stdin (expected one JSON action)")
+		return 1
+	}
+	var action session.Action
+	if err := json.Unmarshal(body, &action); err != nil {
+		fmt.Fprintf(opts.Stderr, "dex session step: parse action: %v\n", err)
+		return 1
+	}
+
+	s, err := opts.openStore()
+	if err != nil {
+		fmt.Fprintf(opts.Stderr, "dex session step: %v\n", err)
+		return 1
+	}
+
+	next, env, err := session.Apply(s, st, action)
+	if err != nil {
+		fmt.Fprintf(opts.Stderr, "dex session step: %v\n", err)
+		return 1
+	}
+	if err := mgr.Save(next); err != nil {
+		fmt.Fprintf(opts.Stderr, "dex session step: save: %v\n", err)
+		return 1
+	}
+
+	enc := json.NewEncoder(opts.Stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(env); err != nil {
+		fmt.Fprintf(opts.Stderr, "dex session step: encode: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
 // RunSessionStart implements `dex session start`. Creates a fresh
 // session file and prints {"session_id": "ses_..."}.
 func RunSessionStart(opts SessionOpts) int {
