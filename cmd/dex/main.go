@@ -180,9 +180,18 @@ Verbs:
                          ULID is preserved so backlinks survive.
   doctor                 Validate the store: schema check + dangling
                          pointer/concern-rolodex detection.
+  session start          Create a new session; print {"session_id"}.
+  session step <id>      Read one JSON action from stdin, apply it,
+                         write envelope JSON.
+  session state <id>     Print envelope JSON for <id> without advancing.
+  session end <id>       Remove the session file (no-op if missing).
+  session list           Print one line per session (id, cursor,
+                         version, last_touched).
   version                Print version
 
 Environment:
   DEX_STORE              Path to the store root (must contain
-                         bundled/personal/private/ephemeral dirs)`)
+                         bundled/personal/private/ephemeral dirs)
+  DEX_SESSION_DIR        Path to the session directory. Default:
+                         ~/.cache/dex/sessions`)
 }
