@@ -293,7 +293,8 @@ func TestSessionCLI_EndToEnd_DrillResolveActivate(t *testing.T) {
 
 	// 2. Drill into /deploy. Cursor lands on the command entry.
 	env := step(`{"action":"drill","target":"/deploy"}`)
-	if ok := env["ok"].(bool); !ok {
+	okVal, _ := env["ok"].(bool)
+	if !okVal {
 		t.Fatalf("drill not ok: %+v", env)
 	}
 
@@ -314,18 +315,28 @@ func TestSessionCLI_EndToEnd_DrillResolveActivate(t *testing.T) {
 			}
 		}
 	}
+	errField, ok := env["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("first activate envelope should have an error field; env=%+v", env)
+	}
+	if errField["code"] != "UNRESOLVED_REQUIRED" {
+		t.Fatalf("first activate error.code: want UNRESOLVED_REQUIRED, got %v; env=%+v",
+			errField["code"], env)
+	}
 
 	// 4. Resolve the ns concern.
 	// NOTE: the Action struct uses "concern" (string) and "value" (string)
 	// fields — NOT a "resolved" map. See internal/session/types.go.
 	env = step(`{"action":"resolve","concern":"ns","value":"prod"}`)
-	if ok := env["ok"].(bool); !ok {
+	okVal, _ = env["ok"].(bool)
+	if !okVal {
 		t.Fatalf("resolve not ok: %+v", env)
 	}
 
 	// 5. Activate again — should emit spawn with the materialized command.
 	env = step(`{"action":"activate"}`)
-	if ok := env["ok"].(bool); !ok {
+	okVal, _ = env["ok"].(bool)
+	if !okVal {
 		t.Fatalf("second activate not ok: %+v", env)
 	}
 	effects, ok := env["effects"].([]any)
@@ -339,9 +350,11 @@ func TestSessionCLI_EndToEnd_DrillResolveActivate(t *testing.T) {
 			continue
 		}
 		if em["type"] == "spawn" {
-			if s, ok := em["shell_command"].(string); ok {
-				spawnCmd = s
+			s, ok := em["shell_command"].(string)
+			if !ok || s == "" {
+				t.Fatalf("spawn effect missing shell_command; effect=%+v", em)
 			}
+			spawnCmd = s
 			break
 		}
 	}
