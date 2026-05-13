@@ -142,7 +142,7 @@ func activateInfo(entry model.Entry, opts ActivateOpts) int {
 
 // activateCommand handles `dex activate <command-entry> [concern=value]...`.
 // Parses concern args (k=v), resolves each declared concern in priority
-// order (user-provided > default > error if required), substitutes
+// order (user-provided > default > error if unresolved), substitutes
 // {local_id} placeholders into the template, then either prints
 // (--dry-run) or execs via `sh -c`.
 func activateCommand(entry model.Entry, concernArgs []string, opts ActivateOpts) int {
@@ -162,7 +162,7 @@ func activateCommand(entry model.Entry, concernArgs []string, opts ActivateOpts)
 		provided[k] = v
 	}
 
-	// Resolve each declared concern: user-provided > default > error if required.
+	// Resolve each declared concern: user-provided > default > error if unresolved.
 	resolved := map[string]string{}
 	for _, c := range entry.Command.Concerns {
 		if v, ok := provided[c.LocalID]; ok {
