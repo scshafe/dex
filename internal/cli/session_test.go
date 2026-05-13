@@ -3,6 +3,7 @@ package cli_test
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -217,6 +218,135 @@ func TestSessionListPrintsAll(t *testing.T) {
 		if !strings.HasPrefix(line, "ses_") {
 			t.Fatalf("line does not start with ses_ prefix: %q", line)
 		}
+	}
+}
+
+func TestSessionCLI_EndToEnd_DrillResolveActivate(t *testing.T) {
+	store := writeMinimalStore(t)
+	// Flat-root fixture: deploy command sits directly at the merged root,
+	// so a single /deploy drill lands on the command entry. Avoids the v1
+	// drillByUUID-is-rolodex-only gap.
+	rootJSON := `{
+		"schema_version": 1,
+		"id": "01HB000000000000000000RT10",
+		"slug": "root",
+		"label": "Root",
+		"visibility": "bundled",
+		"entries": [{
+			"id": "01HB000000000000000000CMD0",
+			"slug": "deploy",
+			"label": "Deploy",
+			"kind": "command",
+			"command": {
+				"template": "kubectl apply -n {ns} -f svc.yaml",
+				"concerns": [{
+					"id": "01HB00000000000000000000K1",
+					"local_id": "ns",
+					"slug": "ns",
+					"label": "Namespace",
+					"required": true,
+					"strict": false
+				}]
+			}
+		}]
+	}`
+	if err := os.WriteFile(filepath.Join(store, "bundled", "root.json"), []byte(rootJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	sessDir := t.TempDir()
+	mkOpts := func(stdin io.Reader, stdout, stderr *bytes.Buffer) cli.SessionOpts {
+		return cli.SessionOpts{
+			StoreRoot:  store,
+			SessionDir: sessDir,
+			Stdin:      stdin, Stdout: stdout, Stderr: stderr,
+		}
+	}
+
+	// 1. start.
+	var startOut bytes.Buffer
+	if exit := cli.RunSessionStart(mkOpts(nil, &startOut, nil)); exit != 0 {
+		t.Fatalf("start: %s", startOut.String())
+	}
+	var sp struct {
+		SessionID string `json:"session_id"`
+	}
+	if err := json.Unmarshal(startOut.Bytes(), &sp); err != nil {
+		t.Fatalf("decode start: %v", err)
+	}
+
+	step := func(action string) map[string]any {
+		t.Helper()
+		var out, errBuf bytes.Buffer
+		exit := cli.RunSessionStep(
+			mkOpts(strings.NewReader(action), &out, &errBuf),
+			[]string{sp.SessionID})
+		if exit != 0 {
+			t.Fatalf("step exit=%d stderr=%s", exit, errBuf.String())
+		}
+		var env map[string]any
+		if err := json.Unmarshal(out.Bytes(), &env); err != nil {
+			t.Fatalf("decode step envelope: %v raw=%s", err, out.String())
+		}
+		return env
+	}
+
+	// 2. Drill into /deploy. Cursor lands on the command entry.
+	env := step(`{"action":"drill","target":"/deploy"}`)
+	if ok := env["ok"].(bool); !ok {
+		t.Fatalf("drill not ok: %+v", env)
+	}
+
+	// 3. Activate before resolving — should NOT emit spawn; stages
+	//    pending concerns and envelope.error should signal
+	//    UNRESOLVED_REQUIRED.
+	env = step(`{"action":"activate"}`)
+	if ok, _ := env["ok"].(bool); ok {
+		t.Fatalf("first activate should not be ok (pending concerns unresolved); env=%+v", env)
+	}
+	// Effects should not contain a spawn yet.
+	if effects, ok := env["effects"].([]any); ok && len(effects) > 0 {
+		for _, e := range effects {
+			if em, ok := e.(map[string]any); ok {
+				if em["type"] == "spawn" {
+					t.Fatalf("first activate must not emit spawn; got %+v", em)
+				}
+			}
+		}
+	}
+
+	// 4. Resolve the ns concern.
+	// NOTE: the Action struct uses "concern" (string) and "value" (string)
+	// fields — NOT a "resolved" map. See internal/session/types.go.
+	env = step(`{"action":"resolve","concern":"ns","value":"prod"}`)
+	if ok := env["ok"].(bool); !ok {
+		t.Fatalf("resolve not ok: %+v", env)
+	}
+
+	// 5. Activate again — should emit spawn with the materialized command.
+	env = step(`{"action":"activate"}`)
+	if ok := env["ok"].(bool); !ok {
+		t.Fatalf("second activate not ok: %+v", env)
+	}
+	effects, ok := env["effects"].([]any)
+	if !ok || len(effects) == 0 {
+		t.Fatalf("second activate must emit at least one effect; env=%+v", env)
+	}
+	var spawnCmd string
+	for _, e := range effects {
+		em, ok := e.(map[string]any)
+		if !ok {
+			continue
+		}
+		if em["type"] == "spawn" {
+			if s, ok := em["shell_command"].(string); ok {
+				spawnCmd = s
+			}
+			break
+		}
+	}
+	if spawnCmd != "kubectl apply -n prod -f svc.yaml" {
+		t.Fatalf("spawn command: got %q want %q", spawnCmd, "kubectl apply -n prod -f svc.yaml")
 	}
 }
 
