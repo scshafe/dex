@@ -122,6 +122,54 @@ func TestSessionStepDrillSucceeds(t *testing.T) {
 	}
 }
 
+func TestSessionStateDoesNotAdvance(t *testing.T) {
+	store := writeMinimalStore(t)
+	r := `{"schema_version":1,"id":"01HB00000000000000000000R1","slug":"root","label":"Root","visibility":"bundled","entries":[]}`
+	if err := os.WriteFile(filepath.Join(store, "bundled", "root.json"), []byte(r), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sessDir := t.TempDir()
+	var startOut bytes.Buffer
+	cli.RunSessionStart(cli.SessionOpts{StoreRoot: store, SessionDir: sessDir, Stdout: &startOut})
+	var sp struct{ SessionID string `json:"session_id"` }
+	_ = json.Unmarshal(startOut.Bytes(), &sp)
+
+	var out bytes.Buffer
+	exit := cli.RunSessionState(cli.SessionOpts{
+		StoreRoot: store, SessionDir: sessDir, Stdout: &out,
+	}, []string{sp.SessionID})
+	if exit != 0 {
+		t.Fatalf("exit=%d out=%s", exit, out.String())
+	}
+	var env struct {
+		OK      bool `json:"ok"`
+		Session struct {
+			Version int `json:"version"`
+		} `json:"session"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &env); err != nil {
+		t.Fatalf("decode: %v raw=%s", err, out.String())
+	}
+	if !env.OK {
+		t.Fatalf("envelope ok=false; raw=%s", out.String())
+	}
+	if env.Session.Version != 0 {
+		t.Fatalf("version: got %d want 0 (state should not advance)", env.Session.Version)
+	}
+
+	// Call again; version still 0.
+	var out2 bytes.Buffer
+	cli.RunSessionState(cli.SessionOpts{StoreRoot: store, SessionDir: sessDir, Stdout: &out2},
+		[]string{sp.SessionID})
+	var env2 struct {
+		Session struct{ Version int `json:"version"` } `json:"session"`
+	}
+	_ = json.Unmarshal(out2.Bytes(), &env2)
+	if env2.Session.Version != 0 {
+		t.Fatalf("version after second state call: got %d want 0", env2.Session.Version)
+	}
+}
+
 func TestSessionStepUnknownAction(t *testing.T) {
 	store := writeMinimalStore(t)
 	r := `{"schema_version":1,"id":"01HB00000000000000000000R1","slug":"root","label":"Root","visibility":"bundled","entries":[]}`

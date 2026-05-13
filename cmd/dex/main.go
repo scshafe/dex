@@ -137,6 +137,8 @@ func runSession(args []string) int {
 		return cli.RunSessionStart(opts)
 	case "step":
 		return cli.RunSessionStep(opts, args[1:])
+	case "state":
+		return cli.RunSessionState(opts, args[1:])
 	}
 	fmt.Fprintf(os.Stderr, "dex session: unknown sub-verb %q\n", args[0])
 	return 2

@@ -135,6 +135,36 @@ func RunSessionStep(opts SessionOpts, args []string) int {
 	return 0
 }
 
+// RunSessionState implements `dex session state <id>`. Loads the
+// session file and writes the envelope JSON without invoking the
+// reducer. State is NOT mutated.
+func RunSessionState(opts SessionOpts, args []string) int {
+	if err := opts.normalize(); err != nil {
+		fmt.Fprintf(opts.Stderr, "dex session state: %v\n", err)
+		return 1
+	}
+	if len(args) < 1 {
+		fmt.Fprintln(opts.Stderr, "dex session state: requires a session id argument")
+		return 2
+	}
+	id := args[0]
+
+	mgr := opts.manager()
+	st, err := mgr.Load(id)
+	if err != nil {
+		fmt.Fprintf(opts.Stderr, "dex session state: %v\n", err)
+		return 1
+	}
+	env := session.EnvelopeOf(st)
+	enc := json.NewEncoder(opts.Stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(env); err != nil {
+		fmt.Fprintf(opts.Stderr, "dex session state: encode: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
 // RunSessionStart implements `dex session start`. Creates a fresh
 // session file and prints {"session_id": "ses_..."}.
 func RunSessionStart(opts SessionOpts) int {
