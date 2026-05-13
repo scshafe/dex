@@ -32,6 +32,8 @@ func main() {
 		os.Exit(runPromote(os.Args[2:]))
 	case "doctor":
 		os.Exit(runDoctor(os.Args[2:]))
+	case "session":
+		os.Exit(runSession(os.Args[2:]))
 	case "version":
 		fmt.Println("dex 0.0.0-dev")
 	default:
@@ -119,6 +121,23 @@ func runDoctor(args []string) int {
 	return cli.RunDoctor(cli.DoctorOpts{
 		StoreRoot: os.Getenv("DEX_STORE"),
 	}, args)
+}
+
+func runSession(args []string) int {
+	if len(args) < 1 {
+		fmt.Fprintln(os.Stderr, "dex session: missing sub-verb (start|step|state|end|list)")
+		return 2
+	}
+	opts := cli.SessionOpts{
+		StoreRoot:  os.Getenv("DEX_STORE"),
+		SessionDir: os.Getenv("DEX_SESSION_DIR"),
+	}
+	switch args[0] {
+	case "start":
+		return cli.RunSessionStart(opts)
+	}
+	fmt.Fprintf(os.Stderr, "dex session: unknown sub-verb %q\n", args[0])
+	return 2
 }
 
 func usage() {
