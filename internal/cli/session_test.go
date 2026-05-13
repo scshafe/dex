@@ -170,6 +170,56 @@ func TestSessionStateDoesNotAdvance(t *testing.T) {
 	}
 }
 
+func TestSessionEndRemovesFile(t *testing.T) {
+	store := writeMinimalStore(t)
+	sessDir := t.TempDir()
+	var startOut bytes.Buffer
+	cli.RunSessionStart(cli.SessionOpts{StoreRoot: store, SessionDir: sessDir, Stdout: &startOut})
+	var sp struct{ SessionID string `json:"session_id"` }
+	_ = json.Unmarshal(startOut.Bytes(), &sp)
+
+	exit := cli.RunSessionEnd(cli.SessionOpts{SessionDir: sessDir}, []string{sp.SessionID})
+	if exit != 0 {
+		t.Fatalf("end exit=%d", exit)
+	}
+	files, _ := os.ReadDir(sessDir)
+	if len(files) != 0 {
+		t.Fatalf("session file not removed; %d remain", len(files))
+	}
+}
+
+func TestSessionEndOnMissingIsNoop(t *testing.T) {
+	sessDir := t.TempDir()
+	exit := cli.RunSessionEnd(cli.SessionOpts{SessionDir: sessDir}, []string{"ses_DOES_NOT_EXIST"})
+	if exit != 0 {
+		t.Fatalf("end on missing session should exit 0; got %d", exit)
+	}
+}
+
+func TestSessionListPrintsAll(t *testing.T) {
+	store := writeMinimalStore(t)
+	sessDir := t.TempDir()
+	// Create two sessions.
+	for i := 0; i < 2; i++ {
+		var out bytes.Buffer
+		cli.RunSessionStart(cli.SessionOpts{StoreRoot: store, SessionDir: sessDir, Stdout: &out})
+	}
+	var out bytes.Buffer
+	exit := cli.RunSessionList(cli.SessionOpts{SessionDir: sessDir, Stdout: &out}, nil)
+	if exit != 0 {
+		t.Fatalf("list exit=%d", exit)
+	}
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("list lines: got %d want 2; raw=%q", len(lines), out.String())
+	}
+	for _, line := range lines {
+		if !strings.HasPrefix(line, "ses_") {
+			t.Fatalf("line does not start with ses_ prefix: %q", line)
+		}
+	}
+}
+
 func TestSessionStepUnknownAction(t *testing.T) {
 	store := writeMinimalStore(t)
 	r := `{"schema_version":1,"id":"01HB00000000000000000000R1","slug":"root","label":"Root","visibility":"bundled","entries":[]}`

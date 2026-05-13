@@ -165,6 +165,51 @@ func RunSessionState(opts SessionOpts, args []string) int {
 	return 0
 }
 
+// RunSessionEnd implements `dex session end <id>`. Removes the session
+// file. Missing files are not an error (matches Manager.End).
+func RunSessionEnd(opts SessionOpts, args []string) int {
+	if err := opts.normalize(); err != nil {
+		fmt.Fprintf(opts.Stderr, "dex session end: %v\n", err)
+		return 1
+	}
+	if len(args) < 1 {
+		fmt.Fprintln(opts.Stderr, "dex session end: requires a session id argument")
+		return 2
+	}
+	mgr := opts.manager()
+	if err := mgr.End(args[0]); err != nil {
+		fmt.Fprintf(opts.Stderr, "dex session end: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+// RunSessionList implements `dex session list`. Prints one line per
+// session: <id>  cursor=<entry|rolodex|->  v<version>  <last_touched>
+func RunSessionList(opts SessionOpts, _ []string) int {
+	if err := opts.normalize(); err != nil {
+		fmt.Fprintf(opts.Stderr, "dex session list: %v\n", err)
+		return 1
+	}
+	mgr := opts.manager()
+	sessions, err := mgr.List()
+	if err != nil {
+		fmt.Fprintf(opts.Stderr, "dex session list: %v\n", err)
+		return 1
+	}
+	for _, s := range sessions {
+		cursor := "-"
+		if s.Cursor.EntryID != "" {
+			cursor = "entry:" + s.Cursor.EntryID
+		} else if s.Cursor.RolodexID != "" {
+			cursor = "rolodex:" + s.Cursor.RolodexID
+		}
+		fmt.Fprintf(opts.Stdout, "%s  %s  v%d  %s\n",
+			s.ID, cursor, s.Version, s.LastTouched.Format("2006-01-02T15:04:05Z07:00"))
+	}
+	return 0
+}
+
 // RunSessionStart implements `dex session start`. Creates a fresh
 // session file and prints {"session_id": "ses_..."}.
 func RunSessionStart(opts SessionOpts) int {
